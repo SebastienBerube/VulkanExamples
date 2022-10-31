@@ -66,9 +66,16 @@ void main()
 	float tmin = 0.001;
 	float tmax = 10000.0;
 	vec3 origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
-	shadowed = true;  
+	shadowed = true;
+
+    vec3 noisyLightVector = normalize(lightVector + vec3(sin(origin.x * 51023.12),
+                                                         sin(origin.y * 41083.12),
+                                                         sin(origin.z * 57084.52))*0.01);
+
+
 	// Trace shadow ray and offset indices to match shadow hit/miss shader group indices
-	traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 1, 0, 1, origin, tmin, lightVector, tmax, 2);
+	traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 1, 0, 1, origin, tmin, noisyLightVector, tmax, 2);
+
 	if (shadowed) {
 		hitValue *= 0.3;
 	}
