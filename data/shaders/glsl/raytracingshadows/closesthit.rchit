@@ -3,7 +3,7 @@
 #extension GL_EXT_nonuniform_qualifier : enable
 
 layout(location = 0) rayPayloadInEXT vec3 hitValue;
-layout(location = 2) rayPayloadEXT bool shadowed;
+layout(location = 1) rayPayloadEXT bool shadowed;
 hitAttributeEXT vec2 attribs;
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT topLevelAS;
@@ -45,6 +45,13 @@ Vertex unpack(uint index)
 	return v;
 }
 
+vec3 hash33(vec3 p3)
+{
+    p3 = fract(p3 * vec3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yxz + 33.33);
+    return fract((p3.xxy + p3.yxx) * p3.zyx);
+}
+
 void main()
 {
 	ivec3 index = ivec3(indices.i[3 * gl_PrimitiveID], indices.i[3 * gl_PrimitiveID + 1], indices.i[3 * gl_PrimitiveID + 2]);
@@ -66,17 +73,46 @@ void main()
 	float tmin = 0.001;
 	float tmax = 10000.0;
 	vec3 origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
-	shadowed = true;
+	
+	//
+	float hitCount = 0.;
+	
+    float noiseSeed = 0.;
+    const int MAX_RAYS = 25;
+    for (int i = 0; i < MAX_RAYS; ++i)
+    {
+        shadowed = true;
+		const float softness = 0.1;
+        vec3 noisyLightVector = normalize(lightVector + (hash33(noiseSeed + origin.xyz * 100.01) - 0.5) * softness);
+        noiseSeed += 51.21728;
 
-    vec3 noisyLightVector = normalize(lightVector + vec3(sin(origin.x * 51023.12),
-                                                         sin(origin.y * 41083.12),
-                                                         sin(origin.z * 57084.52))*0.01);
-
-
-	// Trace shadow ray and offset indices to match shadow hit/miss shader group indices
-	traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 1, 0, 1, origin, tmin, noisyLightVector, tmax, 2);
-
-	if (shadowed) {
-		hitValue *= 0.3;
-	}
+		/*
+		https://github.com/KhronosGroup/GLSL/blob/master/extensions/ext/GLSL_EXT_ray_tracing.txt
+		
+		        void traceRayEXT(accelerationStructureEXT topLevel,
+                   uint rayFlags,
+                   uint cullMask,
+                   uint sbtRecordOffset,
+                   uint sbtRecordStride,
+                   uint missIndex,
+                   vec3 origin,
+                   float Tmin,
+                   vec3 direction,
+                   float Tmax,
+                   int payload);
+		*/
+        // Trace shadow ray and offset indices to match shadow hit/miss shader group indices
+        //traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 1, 0, 1, origin, tmin, noisyLightVector, tmax, 1);
+		traceRayEXT(topLevelAS, /*gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT |*/ gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 1, 0, 1, origin, tmin, noisyLightVector, tmax, 1);
+        if (shadowed)
+        {
+            hitCount += 1.0;
+        }
+    }
+    
+    float baseLight = 0.3;
+	hitValue *= baseLight + (1.0- baseLight)*(1.0-(hitCount / float(MAX_RAYS)));//1.0 - (hitCount / float(MAX_RAYS)) * (1.0 - baseLight);
+	
+    //if (shadowed) {    
+    //}
 }
