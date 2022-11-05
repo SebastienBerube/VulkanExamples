@@ -17,6 +17,12 @@ layout(binding = 2, set = 0) uniform UBO
 layout(binding = 3, set = 0) buffer Vertices { vec4 v[]; } vertices;
 layout(binding = 4, set = 0) buffer Indices { uint i[]; } indices;
 
+//push constants block
+layout(push_constant) uniform constants
+{
+    vec4 data;
+} PushConstants;
+
 struct Vertex
 {
   vec3 pos;
@@ -77,12 +83,13 @@ void main()
 	//
 	float hitCount = 0.;
 	
-    float noiseSeed = 0.;
+    float noiseSeed = PushConstants.data.x;
     const int MAX_RAYS = 25;
     for (int i = 0; i < MAX_RAYS; ++i)
     {
         shadowed = true;
 		const float softness = 0.1;
+        
         vec3 noisyLightVector = normalize(lightVector + (hash33(noiseSeed + origin.xyz * 100.01) - 0.5) * softness);
         noiseSeed += 51.21728;
 
@@ -111,8 +118,5 @@ void main()
     }
     
     float baseLight = 0.3;
-	hitValue *= baseLight + (1.0- baseLight)*(1.0-(hitCount / float(MAX_RAYS)));//1.0 - (hitCount / float(MAX_RAYS)) * (1.0 - baseLight);
-	
-    //if (shadowed) {    
-    //}
+	hitValue *= baseLight + (1.0- baseLight)*(1.0-(hitCount / float(MAX_RAYS)));
 }

@@ -13,6 +13,10 @@
 
 class VulkanExample : public VulkanRaytracingSample
 {
+    struct ShadowPushConstants {
+        glm::vec4 data;
+    };
+
 public:
 	AccelerationStructure bottomLevelAS;
 	AccelerationStructure topLevelAS;
@@ -345,6 +349,23 @@ public:
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCI, nullptr, &descriptorSetLayout));
 
 		VkPipelineLayoutCreateInfo pPipelineLayoutCI = vks::initializers::pipelineLayoutCreateInfo(&descriptorSetLayout, 1);
+
+        //<Add PushConstants>
+        {
+            VkPushConstantRange push_constant;
+            //this push constant range starts at the beginning
+            push_constant.offset = 0;
+            //this push constant range takes up the size of a MeshPushConstants struct
+            push_constant.size = sizeof(ShadowPushConstants);
+            //this push constant range is accessible only in the vertex shader
+            push_constant.stageFlags = VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+
+            pPipelineLayoutCI.pPushConstantRanges = &push_constant;
+            pPipelineLayoutCI.pushConstantRangeCount = 1;
+        }
+        //</Add PushConstants>
+
+
 		VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCI, nullptr, &pipelineLayout));
 	
 		/*
@@ -452,6 +473,22 @@ public:
 		for (int32_t i = 0; i < drawCmdBuffers.size(); ++i)
 		{
 			VK_CHECK_RESULT(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufInfo));
+
+
+            //<Add PushConstants>
+            ShadowPushConstants shadowPushConstants;
+            static int iFrame = 0;
+            iFrame += 1;
+            glm::vec4 pdat = { float(iFrame),0.f,0.f, 0.f };
+            shadowPushConstants.data = pdat;
+            if (iFrame % 1000 == 0) {
+                char cBuf[255];
+                sprintf(&cBuf[0], "iFrame=%d\n", iFrame);
+                OutputDebugStringA(&cBuf[0]);
+            }
+            
+            vkCmdPushConstants(drawCmdBuffers[i], pipelineLayout, VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 0, sizeof(ShadowPushConstants), &shadowPushConstants);
+            //</Add PushConstants>
 
 			/*
 				Dispatch the ray tracing commands
@@ -566,6 +603,11 @@ public:
 
 	void draw()
 	{
+        //<TEMP TEST : Refresh PushConstants by rebuilding command buffers>
+        //Note : This is inefficient, fix this.
+        buildCommandBuffers();
+        //</Add PushConstants>
+
 		VulkanExampleBase::prepareFrame();
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &drawCmdBuffers[currentBuffer];
