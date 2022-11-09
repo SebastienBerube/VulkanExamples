@@ -33,13 +33,12 @@ void main()
 
 	traceRayEXT(topLevelAS, rayFlags, cullMask, 0, 0, 0, origin.xyz, tmin, direction.xyz, tmax, 0);
 
-    vec3 col = texture(colorMap, inUV).rgb;
+	vec3 col = texture(colorMap, inUV).rgb;
 
-    if (inUV.x < 0.25 && inUV.y < 0.25)
-    {
-        hitValue = col;
-    }
-    
+	if (inUV.x < 0.25 && inUV.y < 0.25)
+	{
+		hitValue = col;
+	}
 
 	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(hitValue, 0.0));
 }

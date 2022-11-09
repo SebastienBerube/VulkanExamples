@@ -13,9 +13,6 @@
 
 class VulkanExample : public VulkanRaytracingSample
 {
-    struct ShadowPushConstants {
-        glm::vec4 data;
-    };
 
 public:
 	AccelerationStructure bottomLevelAS;
@@ -288,11 +285,11 @@ public:
 	void createDescriptorSets()
 	{
 		std::vector<VkDescriptorPoolSize> poolSizes = {
-            { VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 },
-            { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
+			{ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
 			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
 			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2 },
-            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 }
+			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 }
 		};
 		VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = vks::initializers::descriptorPoolCreateInfo(poolSizes, 1);
 		VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolCreateInfo, nullptr, &descriptorPool));
@@ -328,8 +325,8 @@ public:
 			vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3, &vertexBufferDescriptor),
 			// Binding 4: Scene index buffer
 			vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4, &indexBufferDescriptor),
-            // Binding 5 : Texture Input Test
-            vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, &this->inputTextureTest.descriptor),
+			// Binding 5 : Texture Input Test
+			vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, &this->inputTextureTest.descriptor),
 		};
 
 
@@ -360,22 +357,6 @@ public:
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCI, nullptr, &descriptorSetLayout));
 
 		VkPipelineLayoutCreateInfo pPipelineLayoutCI = vks::initializers::pipelineLayoutCreateInfo(&descriptorSetLayout, 1);
-
-        //<Add PushConstants>
-        {
-            VkPushConstantRange push_constant;
-            //this push constant range starts at the beginning
-            push_constant.offset = 0;
-            //this push constant range takes up the size of a MeshPushConstants struct
-            push_constant.size = sizeof(ShadowPushConstants);
-            //this push constant range is accessible only in the vertex shader
-            push_constant.stageFlags = VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-
-            pPipelineLayoutCI.pPushConstantRanges = &push_constant;
-            pPipelineLayoutCI.pushConstantRangeCount = 1;
-        }
-        //</Add PushConstants>
-
 
 		VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCI, nullptr, &pipelineLayout));
 	
@@ -498,7 +479,7 @@ public:
                 OutputDebugStringA(&cBuf[0]);
             }
             
-            vkCmdPushConstants(drawCmdBuffers[i], pipelineLayout, VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 0, sizeof(ShadowPushConstants), &shadowPushConstants);
+            vkCmdPushConstants(drawCmdBuffers[i], pipelineLayout, VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 0, sizeof(ShadowPushConstants), &shadowPushConstants);
             //</Add PushConstants>
 
 			/*
@@ -573,7 +554,7 @@ public:
 		uniformData.projInverse = glm::inverse(camera.matrices.perspective);
 		uniformData.viewInverse = glm::inverse(camera.matrices.view);
 		uniformData.lightPos = glm::vec4(cos(glm::radians(timer * 360.0f)) * 40.0f, -50.0f + sin(glm::radians(timer * 360.0f)) * 20.0f, 25.0f + sin(glm::radians(timer * 360.0f)) * 5.0f, 0.0f);
-        uniformData.frameNo = (int32_t)frameCounter;
+		uniformData.frameNo = (int32_t)frameCounter;
 
 		// Pass the vertex size to the shader for unpacking vertices
 		uniformData.vertexSize = sizeof(vkglTF::Vertex);
@@ -601,7 +582,7 @@ public:
 	{
 		VulkanRaytracingSample::prepare();
 
-        loadAssets();
+		loadAssets();
 
 		// Create the acceleration structures used to render the ray traced scene
 		createBottomLevelAccelerationStructure();
@@ -616,18 +597,13 @@ public:
 		prepared = true;
 	}
 
-    void loadAssets()
-    {
-        this->inputTextureTest.loadFromFile(getAssetPath() + "textures/stonefloor03_color_height_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue);
-    }
+	void loadAssets()
+	{
+		this->inputTextureTest.loadFromFile(getAssetPath() + "textures/stonefloor03_color_height_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue);
+	}
 
 	void draw()
 	{
-        //<TEMP TEST : Refresh PushConstants by rebuilding command buffers>
-        //Note : This is inefficient, fix this.
-        buildCommandBuffers();
-        //</Add PushConstants>
-
 		VulkanExampleBase::prepareFrame();
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &drawCmdBuffers[currentBuffer];
