@@ -13,6 +13,7 @@ layout(binding = 2, set = 0) uniform UBO
 	mat4 projInverse;
 	vec4 lightPos;
 	int vertexSize;
+	int frameNo;
 } ubo;
 layout(binding = 3, set = 0) buffer Vertices { vec4 v[]; } vertices;
 layout(binding = 4, set = 0) buffer Indices { uint i[]; } indices;
@@ -83,7 +84,7 @@ void main()
 	//
 	float hitCount = 0.;
 	
-    float noiseSeed = PushConstants.data.x;
+    float noiseSeed = float(ubo.frameNo);
     const int MAX_RAYS = 25;
     for (int i = 0; i < MAX_RAYS; ++i)
     {
