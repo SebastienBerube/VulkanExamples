@@ -34,6 +34,14 @@ public:
 	} uniformData;
 	vks::Buffer ubo;
 
+    //Same as FrameBufferAttachment in bloom.cpp. Might need to add other FrameBuffer data such as VkDescriptorImageInfo?
+    struct RaytracingFeedbackImage {
+        VkImage image = VK_NULL_HANDLE;
+        VkDeviceMemory mem = VK_NULL_HANDLE;
+        VkImageView view = VK_NULL_HANDLE;
+        VkSampler sampler = VK_NULL_HANDLE;
+    } raytracingFeedbackImage;
+
 	VkPipeline pipeline;
 	VkPipelineLayout pipelineLayout;
 	VkDescriptorSet descriptorSet;
@@ -60,14 +68,16 @@ public:
 		vkDestroyPipeline(device, pipeline, nullptr);
 		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 		vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-		deleteStorageImage();
-		deleteAccelerationStructure(bottomLevelAS);
+        deleteFeedbackSampler();
+        deleteFeedbackImage();
+        deleteStorageImage();
+        deleteAccelerationStructure(bottomLevelAS);
 		deleteAccelerationStructure(topLevelAS);
 		shaderBindingTables.raygen.destroy();
 		shaderBindingTables.miss.destroy();
 		shaderBindingTables.hit.destroy();
 		ubo.destroy();
-        inputTextureTest.destroy();
+		inputTextureTest.destroy();
 	}
 
 	/*
@@ -80,6 +90,8 @@ public:
 		vkglTF::memoryPropertyFlags = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 		const uint32_t glTFLoadingFlags = vkglTF::FileLoadingFlags::PreTransformVertices | vkglTF::FileLoadingFlags::PreMultiplyVertexColors | vkglTF::FileLoadingFlags::FlipY;
 		scene.loadFromFile(getAssetPath() + "models/vulkanscene_shadow.gltf", vulkanDevice, queue, glTFLoadingFlags);
+		//scene.loadFromFile(getAssetPath() + "models/samplebuilding.gltf", vulkanDevice, queue, glTFLoadingFlags);
+		//scene.loadFromFile(getAssetPath() + "models/shadowscene_fire.gltf", vulkanDevice, queue, glTFLoadingFlags);
 
 		VkDeviceOrHostAddressConstKHR vertexBufferDeviceAddress{};
 		VkDeviceOrHostAddressConstKHR indexBufferDeviceAddress{};
@@ -279,6 +291,102 @@ public:
 		memcpy(shaderBindingTables.hit.mapped, shaderHandleStorage.data() + handleSizeAligned * 3, handleSize);
 	}
 
+    void createFeedbackImage(VkExtent3D extent)
+    {
+        if (storageImage.image != VK_NULL_HANDLE) {
+            vkDestroyImageView(device, raytracingFeedbackImage.view, nullptr);
+            vkDestroyImage(device, raytracingFeedbackImage.image, nullptr);
+            vkFreeMemory(device, raytracingFeedbackImage.mem, nullptr);
+            raytracingFeedbackImage = {};
+        }
+
+        //Similar to bloom.cpp
+        VkMemoryAllocateInfo memAlloc = vks::initializers::memoryAllocateInfo();
+        VkMemoryRequirements memReqs;
+
+        VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM;
+
+        // Color attachment : vkCreateImage
+        {
+            VkImageCreateInfo createInfo = vks::initializers::imageCreateInfo();
+            createInfo.imageType = VK_IMAGE_TYPE_2D;
+            createInfo.format = colorFormat;
+            createInfo.extent = extent;
+            createInfo.extent.depth = 1;
+            createInfo.mipLevels = 1;
+            createInfo.arrayLayers = 1;
+            createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+            createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+            // We will sample directly from the color attachment
+            createInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+            VK_CHECK_RESULT(vkCreateImage(device, &createInfo, nullptr, &raytracingFeedbackImage.image));
+        }
+
+        // Color attachment : Allocate and bind image memory
+        {
+            vkGetImageMemoryRequirements(device, raytracingFeedbackImage.image, &memReqs);
+            memAlloc.allocationSize = memReqs.size;
+            memAlloc.memoryTypeIndex = vulkanDevice->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+            VK_CHECK_RESULT(vkAllocateMemory(device, &memAlloc, nullptr, &raytracingFeedbackImage.mem));
+            VK_CHECK_RESULT(vkBindImageMemory(device, raytracingFeedbackImage.image, raytracingFeedbackImage.mem, 0));
+        }
+
+        // Color attachment : vkCreateImageView
+        {
+            VkImageViewCreateInfo createInfo = vks::initializers::imageViewCreateInfo();
+            createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            createInfo.format = colorFormat;
+            createInfo.flags = 0;
+            createInfo.subresourceRange = {};
+            createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            createInfo.subresourceRange.baseMipLevel = 0;
+            createInfo.subresourceRange.levelCount = 1;
+            createInfo.subresourceRange.baseArrayLayer = 0;
+            createInfo.subresourceRange.layerCount = 1;
+            createInfo.image = raytracingFeedbackImage.image;
+            VK_CHECK_RESULT(vkCreateImageView(device, &createInfo, nullptr, &raytracingFeedbackImage.view));
+        }
+
+        //TODO : Continue reading and understanding prepareOffscreenFramebuffer() in bloom.cpp
+        //...
+        //Questions:
+        //  - Do we need a VkFramebufferCreateInfo here? Perhaps we don't need it if
+        //    we just copy the vkImage, without actually rendering into it.
+    }
+
+    void deleteFeedbackImage()
+    {
+        //raytracingFeedbackImage
+        vkDestroyImageView(device, raytracingFeedbackImage.view, nullptr);
+        vkDestroyImage(device, raytracingFeedbackImage.image, nullptr);
+        vkFreeMemory(device, raytracingFeedbackImage.mem, nullptr);
+    }
+
+    void createFeedbackSampler()
+    {
+        //Inspired from bloom.cpp (prepareOffscreen)
+        // 
+        // Create sampler to sample from the feedback attachments
+        VkSamplerCreateInfo sampler = vks::initializers::samplerCreateInfo();
+        sampler.magFilter = VK_FILTER_LINEAR;
+        sampler.minFilter = VK_FILTER_LINEAR;
+        sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        sampler.addressModeV = sampler.addressModeU;
+        sampler.addressModeW = sampler.addressModeU;
+        sampler.mipLodBias = 0.0f;
+        sampler.maxAnisotropy = 1.0f;
+        sampler.minLod = 0.0f;
+        sampler.maxLod = 1.0f;
+        sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+        VK_CHECK_RESULT(vkCreateSampler(device, &sampler, nullptr, &raytracingFeedbackImage.sampler));
+    }
+
+    void deleteFeedbackSampler()
+    {
+        vkDestroySampler(device, raytracingFeedbackImage.sampler, nullptr);
+    }
+
 	/*
 		Create the descriptor sets used for the ray tracing dispatch
 	*/
@@ -311,6 +419,11 @@ public:
 		accelerationStructureWrite.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
 
 		VkDescriptorImageInfo storageImageDescriptor{ VK_NULL_HANDLE, storageImage.view, VK_IMAGE_LAYOUT_GENERAL };
+
+        //Same as bloom.cpp (frameBuf->descriptor):
+        VkDescriptorImageInfo feedbackImageDescriptor{ raytracingFeedbackImage.sampler, raytracingFeedbackImage.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+
+
 		VkDescriptorBufferInfo vertexBufferDescriptor{ scene.vertices.buffer, 0, VK_WHOLE_SIZE };
 		VkDescriptorBufferInfo indexBufferDescriptor{ scene.indices.buffer, 0, VK_WHOLE_SIZE };
 
@@ -326,7 +439,8 @@ public:
 			// Binding 4: Scene index buffer
 			vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4, &indexBufferDescriptor),
 			// Binding 5 : Texture Input Test
-			vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, &this->inputTextureTest.descriptor),
+			//vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, &this->inputTextureTest.descriptor),
+            vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, &feedbackImageDescriptor),
 		};
 
 
@@ -441,6 +555,7 @@ public:
 	{
 		// Recreate image
 		createStorageImage(swapChain.colorFormat, { width, height, 1 });
+        createFeedbackImage({ width, height, 1 });
 		// Update descriptor
 		VkDescriptorImageInfo storageImageDescriptor{ VK_NULL_HANDLE, storageImage.view, VK_IMAGE_LAYOUT_GENERAL };
 		VkWriteDescriptorSet resultImageWrite = vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &storageImageDescriptor);
@@ -509,6 +624,7 @@ public:
 			copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
 			copyRegion.dstOffset = { 0, 0, 0 };
 			copyRegion.extent = { width, height, 1 };
+			//Note SB: would this be needed?
 			vkCmdCopyImage(drawCmdBuffers[i], storageImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapChain.images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
 			// Transition swap chain image back for presentation
@@ -519,6 +635,26 @@ public:
 				VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 				subresourceRange);
 
+
+            //Test:
+            VkClearColorValue feedbackClearColor = { { 0.025f, 0.025f, 1.0f, 1.0f } };
+            VkImageSubresourceRange feedbackSubresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+            vkCmdClearColorImage(
+                drawCmdBuffers[i],
+                raytracingFeedbackImage.image,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                &feedbackClearColor,
+                1,
+                &feedbackSubresourceRange);
+
+
+            VkImageCopy feedbackCopyRegion{};
+            feedbackCopyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+            feedbackCopyRegion.srcOffset = { 0, 0, 0 };
+            feedbackCopyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+            feedbackCopyRegion.dstOffset = { 0, 0, 0 };
+            feedbackCopyRegion.extent = { width, height, 1 };
+
 			// Transition ray tracing output image back to general layout
 			vks::tools::setImageLayout(
 				drawCmdBuffers[i],
@@ -526,6 +662,25 @@ public:
 				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 				VK_IMAGE_LAYOUT_GENERAL,
 				subresourceRange);
+
+            //vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, &this->inputTextureTest.descriptor),
+            //This command shows that I CAN copy the inputTextureTest to
+
+            //vkCmdCopyImage(drawCmdBuffers[i], this->inputTextureTest.image, VK_IMAGE_LAYOUT_GENERAL, raytracingFeedbackImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, &copyRegion);
+            if((int)frameCounter%100==0)
+                vkCmdCopyImage(drawCmdBuffers[i], this->inputTextureTest.image, VK_IMAGE_LAYOUT_GENERAL, raytracingFeedbackImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, &copyRegion);
+            else
+
+            {
+                vkCmdClearColorImage(
+                    drawCmdBuffers[i],
+                    raytracingFeedbackImage.image,
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    &feedbackClearColor,
+                    1,
+                    &feedbackSubresourceRange);
+            }
+            //vkCmdCopyImage(drawCmdBuffers[i], storageImage.image, VK_IMAGE_LAYOUT_GENERAL, raytracingFeedbackImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, &copyRegion);
 
 			drawUI(drawCmdBuffers[i], frameBuffers[i]);
 
@@ -573,9 +728,11 @@ public:
 		createTopLevelAccelerationStructure();
 
 		createStorageImage(swapChain.colorFormat, { width, height, 1 });
+        createFeedbackImage({ width, height, 1 });
 		createUniformBuffer();
 		createRayTracingPipeline();
 		createShaderBindingTables();
+        createFeedbackSampler();
 		createDescriptorSets();
 		buildCommandBuffers();
 		prepared = true;
