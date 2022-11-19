@@ -466,22 +466,6 @@ public:
 		{
 			VK_CHECK_RESULT(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufInfo));
 
-
-            //<Add PushConstants>
-            ShadowPushConstants shadowPushConstants;
-            static int iFrame = 0;
-            iFrame += 1;
-            glm::vec4 pdat = { float(iFrame),0.f,0.f, 0.f };
-            shadowPushConstants.data = pdat;
-            if (iFrame % 1000 == 0) {
-                char cBuf[255];
-                sprintf(&cBuf[0], "iFrame=%d\n", iFrame);
-                OutputDebugStringA(&cBuf[0]);
-            }
-            
-            vkCmdPushConstants(drawCmdBuffers[i], pipelineLayout, VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 0, sizeof(ShadowPushConstants), &shadowPushConstants);
-            //</Add PushConstants>
-
 			/*
 				Dispatch the ray tracing commands
 			*/
