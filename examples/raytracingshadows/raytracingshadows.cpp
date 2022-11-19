@@ -358,7 +358,7 @@ public:
             //this push constant range takes up the size of a MeshPushConstants struct
             push_constant.size = sizeof(ShadowPushConstants);
             //this push constant range is accessible only in the vertex shader
-            push_constant.stageFlags = VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+            push_constant.stageFlags = VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 
             pPipelineLayoutCI.pPushConstantRanges = &push_constant;
             pPipelineLayoutCI.pushConstantRangeCount = 1;
@@ -487,7 +487,7 @@ public:
                 OutputDebugStringA(&cBuf[0]);
             }
             
-            vkCmdPushConstants(drawCmdBuffers[i], pipelineLayout, VK_SHADER_STAGE_ANY_HIT_BIT_KHR, 0, sizeof(ShadowPushConstants), &shadowPushConstants);
+            vkCmdPushConstants(drawCmdBuffers[i], pipelineLayout, VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, 0, sizeof(ShadowPushConstants), &shadowPushConstants);
             //</Add PushConstants>
 
 			/*
