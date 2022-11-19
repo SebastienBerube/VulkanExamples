@@ -318,7 +318,7 @@ public:
             createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
             createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
             // We will sample directly from the color attachment
-            createInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+            createInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
             VK_CHECK_RESULT(vkCreateImage(device, &createInfo, nullptr, &raytracingFeedbackImage.image));
         }
 
