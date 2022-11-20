@@ -319,6 +319,7 @@ public:
             createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
             // We will sample directly from the color attachment
             createInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+            createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
             VK_CHECK_RESULT(vkCreateImage(device, &createInfo, nullptr, &raytracingFeedbackImage.image));
         }
 
@@ -346,6 +347,17 @@ public:
             createInfo.image = raytracingFeedbackImage.image;
             VK_CHECK_RESULT(vkCreateImageView(device, &createInfo, nullptr, &raytracingFeedbackImage.view));
         }
+
+        VkImageSubresourceRange subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        VkCommandBuffer commandBuffer = vulkanDevice->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+        vks::tools::setImageLayout(
+            commandBuffer,
+            raytracingFeedbackImage.image,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_GENERAL,
+            subresourceRange);
+
+        vulkanDevice->flushCommandBuffer(commandBuffer, queue);
 
         //TODO : Continue reading and understanding prepareOffscreenFramebuffer() in bloom.cpp
         //...
@@ -420,9 +432,9 @@ public:
 
 		VkDescriptorImageInfo storageImageDescriptor{ VK_NULL_HANDLE, storageImage.view, VK_IMAGE_LAYOUT_GENERAL };
 
-        //Same as bloom.cpp (frameBuf->descriptor):
-        VkDescriptorImageInfo feedbackImageDescriptor{ raytracingFeedbackImage.sampler, raytracingFeedbackImage.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
-
+        //Similar to bloom.cpp (frameBuf->descriptor):
+        //Note : VK_IMAGE_LAYOUT_GENERAL is the layout that the image subresources accessible from imageView will be in at the time this descriptor is accessed. imageLayout is used in descriptor updates
+        VkDescriptorImageInfo feedbackImageDescriptor{ raytracingFeedbackImage.sampler, raytracingFeedbackImage.view, VK_IMAGE_LAYOUT_GENERAL };
 
 		VkDescriptorBufferInfo vertexBufferDescriptor{ scene.vertices.buffer, 0, VK_WHOLE_SIZE };
 		VkDescriptorBufferInfo indexBufferDescriptor{ scene.indices.buffer, 0, VK_WHOLE_SIZE };
@@ -635,19 +647,26 @@ public:
 				VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 				subresourceRange);
 
+            // Transition ray tracing output image back to general layout
+            vks::tools::setImageLayout(
+                drawCmdBuffers[i],
+                storageImage.image,
+                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                VK_IMAGE_LAYOUT_GENERAL,
+                subresourceRange);
 
             //Test:
-            VkClearColorValue feedbackClearColor = { { 0.025f, 0.025f, 1.0f, 1.0f } };
+            VkClearColorValue feedbackClearColor = {{0.025f, 0.025f, 1.0f, 1.0f}};
             VkImageSubresourceRange feedbackSubresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
             vkCmdClearColorImage(
                 drawCmdBuffers[i],
                 raytracingFeedbackImage.image,
-                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                VK_IMAGE_LAYOUT_GENERAL,
                 &feedbackClearColor,
                 1,
                 &feedbackSubresourceRange);
-
-
+                
+            /*
             VkImageCopy feedbackCopyRegion{};
             feedbackCopyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
             feedbackCopyRegion.srcOffset = { 0, 0, 0 };
@@ -680,6 +699,7 @@ public:
                     1,
                     &feedbackSubresourceRange);
             }
+            */
             //vkCmdCopyImage(drawCmdBuffers[i], storageImage.image, VK_IMAGE_LAYOUT_GENERAL, raytracingFeedbackImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, &copyRegion);
 
 			drawUI(drawCmdBuffers[i], frameBuffers[i]);
