@@ -247,9 +247,13 @@ void VulkanRaytracingSample::createStorageImage(VkFormat format, VkExtent3D exte
 
 void VulkanRaytracingSample::deleteStorageImage()
 {
-	vkDestroyImageView(vulkanDevice->logicalDevice, storageImage.view, nullptr);
-	vkDestroyImage(vulkanDevice->logicalDevice, storageImage.image, nullptr);
-	vkFreeMemory(vulkanDevice->logicalDevice, storageImage.memory, nullptr);
+    if (storageImage.image != VK_NULL_HANDLE)
+    {
+        vkDestroyImageView(vulkanDevice->logicalDevice, storageImage.view, nullptr);
+        vkDestroyImage(vulkanDevice->logicalDevice, storageImage.image, nullptr);
+        vkFreeMemory(vulkanDevice->logicalDevice, storageImage.memory, nullptr);
+        storageImage = {};
+    }
 }
 
 void VulkanRaytracingSample::prepare()

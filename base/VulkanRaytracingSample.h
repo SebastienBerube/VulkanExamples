@@ -61,7 +61,7 @@ public:
 		VkDeviceMemory memory = VK_NULL_HANDLE;
 		VkImage image = VK_NULL_HANDLE;
 		VkImageView view = VK_NULL_HANDLE;
-		VkFormat format;
+		VkFormat format; //Is this used?
 	} storageImage;
 
 	// Extends the buffer class and holds information for a shader binding table

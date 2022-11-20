@@ -368,14 +368,21 @@ public:
 
     void deleteFeedbackImage()
     {
-        //raytracingFeedbackImage
-        vkDestroyImageView(device, raytracingFeedbackImage.view, nullptr);
-        vkDestroyImage(device, raytracingFeedbackImage.image, nullptr);
-        vkFreeMemory(device, raytracingFeedbackImage.mem, nullptr);
+        if (raytracingFeedbackImage.image != VK_NULL_HANDLE)
+        {
+            vkDestroyImageView(device, raytracingFeedbackImage.view, nullptr);
+            vkDestroyImage(device, raytracingFeedbackImage.image, nullptr);
+            vkFreeMemory(device, raytracingFeedbackImage.mem, nullptr);
+            raytracingFeedbackImage.mem = VK_NULL_HANDLE;
+            raytracingFeedbackImage.image = VK_NULL_HANDLE;
+            raytracingFeedbackImage.view = VK_NULL_HANDLE;
+        }
     }
 
     void createFeedbackSampler()
     {
+        deleteFeedbackSampler();
+
         //Inspired from bloom.cpp (prepareOffscreen)
         // 
         // Create sampler to sample from the feedback attachments
@@ -396,7 +403,11 @@ public:
 
     void deleteFeedbackSampler()
     {
-        vkDestroySampler(device, raytracingFeedbackImage.sampler, nullptr);
+        if (raytracingFeedbackImage.sampler != VK_NULL_HANDLE)
+        {
+            vkDestroySampler(device, raytracingFeedbackImage.sampler, nullptr);
+            raytracingFeedbackImage.sampler = VK_NULL_HANDLE;
+        }
     }
 
 	/*
@@ -565,13 +576,25 @@ public:
 	*/
 	void handleResize()
 	{
-		// Recreate image
+        deleteFeedbackSampler();
+        deleteFeedbackImage();
+        deleteStorageImage();
+
+		// Recreate images
 		createStorageImage(swapChain.colorFormat, { width, height, 1 });
         createFeedbackImage({ width, height, 1 });
-		// Update descriptor
+        createFeedbackSampler();
+		// Update descriptorss
 		VkDescriptorImageInfo storageImageDescriptor{ VK_NULL_HANDLE, storageImage.view, VK_IMAGE_LAYOUT_GENERAL };
-		VkWriteDescriptorSet resultImageWrite = vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &storageImageDescriptor);
-		vkUpdateDescriptorSets(device, 1, &resultImageWrite, 0, VK_NULL_HANDLE);
+        VkDescriptorImageInfo feedbackImageDescriptor{ raytracingFeedbackImage.sampler, raytracingFeedbackImage.view, VK_IMAGE_LAYOUT_GENERAL };
+
+        std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
+            vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &storageImageDescriptor),
+            vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, &feedbackImageDescriptor)
+        };
+        
+        vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, VK_NULL_HANDLE);
+
 		resized = false;
 	}
 
