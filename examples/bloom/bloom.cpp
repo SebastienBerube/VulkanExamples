@@ -464,7 +464,7 @@ public:
 				clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
 				clearValues[1].depthStencil = { 1.0f, 0 };
 
-				VkRenderPassBeginInfo renderPassBeginInfo = vks::initializers::renderPassBeginInfo();
+                VkRenderPassBeginInfo renderPassBeginInfo = vks::initializers::renderPassBeginInfo();
 				renderPassBeginInfo.renderPass = offscreenPass.renderPass;
 				renderPassBeginInfo.framebuffer = offscreenPass.framebuffers[0].framebuffer;
 				renderPassBeginInfo.renderArea.extent.width = offscreenPass.width;
@@ -482,7 +482,9 @@ public:
 					First render pass: Render glow parts of the model (separate mesh) to an offscreen frame buffer
 				*/
 
-				vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+                DebugMarker::beginRegion(drawCmdBuffers[i], "Glowing Parts Render Pass (Bloom)", glm::vec4(0.0f, 1.0f, 0.05f, 1.0f));
+
+                vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 				vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayouts.scene, 0, 1, &descriptorSets.scene, 0, NULL);
 				vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.glowPass);
@@ -491,12 +493,16 @@ public:
 
 				vkCmdEndRenderPass(drawCmdBuffers[i]);
 
+                DebugMarker::endRegion(drawCmdBuffers[i]);
+
 				/*
 					Second render pass: Vertical blur
 
 					Render contents of the first pass into a second framebuffer and apply a vertical blur
 					This is the first blur pass, the horizontal blur is applied when rendering on top of the scene
 				*/
+
+                DebugMarker::beginRegion(drawCmdBuffers[i], "Bloom vertical blur", glm::vec4(0.0f, 1.0f, 0.05f, 1.0f));
 
 				renderPassBeginInfo.framebuffer = offscreenPass.framebuffers[1].framebuffer;
 
@@ -507,6 +513,8 @@ public:
 				vkCmdDraw(drawCmdBuffers[i], 3, 1, 0, 0);
 
 				vkCmdEndRenderPass(drawCmdBuffers[i]);
+
+                DebugMarker::endRegion(drawCmdBuffers[i]);
 			}
 
 			/*
@@ -531,6 +539,8 @@ public:
 				renderPassBeginInfo.clearValueCount = 2;
 				renderPassBeginInfo.pClearValues = clearValues;
 
+                DebugMarker::beginRegion(drawCmdBuffers[i], "Scene Render Pass", glm::vec4(0.0f, 0.0f, 1.05f, 1.0f));
+
 				vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 				VkViewport viewport = vks::initializers::viewport((float)width, (float)height, 0.0f, 1.0f);
@@ -554,15 +564,18 @@ public:
 
 				if (bloom)
 				{
+                    DebugMarker::beginRegion(drawCmdBuffers[i], "Bloom horizontal blur", glm::vec4(0.0f, 1.0f, 0.05f, 1.0f));
 					vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayouts.blur, 0, 1, &descriptorSets.blurHorz, 0, NULL);
 					vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.blurHorz);
 					vkCmdDraw(drawCmdBuffers[i], 3, 1, 0, 0);
+                    DebugMarker::endRegion(drawCmdBuffers[i]);
 				}
 
 				drawUI(drawCmdBuffers[i]);
 
 				vkCmdEndRenderPass(drawCmdBuffers[i]);
 
+                DebugMarker::endRegion(drawCmdBuffers[i]);
 			}
 
 			VK_CHECK_RESULT(vkEndCommandBuffer(drawCmdBuffers[i]));
