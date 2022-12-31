@@ -645,13 +645,36 @@ public:
 				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 				subresourceRange);
 
+            // Note : Commenting out this part, since the memory barrier also includes a layout transition.
 			// Prepare ray tracing output image as transfer source
-			vks::tools::setImageLayout(
+			/*vks::tools::setImageLayout(
 				drawCmdBuffers[i],
 				storageImage.image,
 				VK_IMAGE_LAYOUT_GENERAL,
 				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				subresourceRange);
+				subresourceRange);*/
+            
+            {
+                VkMemoryBarrier memBarrier;
+                memBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+                //Note : VK_ACCESS_MEMORY_READ_BIT specifies all read accesses. It is always valid in any access mask,
+                //       and is treated as equivalent to setting all READ access flags that are valid where it is used.
+                //       See: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAccessFlagBits.html
+                memBarrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+                memBarrier.dstAccessMask = VK_ACCESS_NONE;
+                memBarrier.pNext = nullptr;
+
+
+                VkImageMemoryBarrier imageMemoryBarrier{};
+                imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+                imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+                imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                imageMemoryBarrier.srcAccessMask = 0;
+                imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                imageMemoryBarrier.image = storageImage.image;
+                imageMemoryBarrier.subresourceRange = subresourceRange;
+                vkCmdPipelineBarrier(drawCmdBuffers[i], VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &memBarrier, 0, nullptr, 1, &imageMemoryBarrier);
+            }
 
 			VkImageCopy copyRegion{};
 			copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
@@ -659,9 +682,54 @@ public:
 			copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
 			copyRegion.dstOffset = { 0, 0, 0 };
 			copyRegion.extent = { width, height, 1 };
-			//Note SB: would this be needed?
-			vkCmdCopyImage(drawCmdBuffers[i], storageImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapChain.images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+			
+            vkCmdCopyImage(drawCmdBuffers[i], storageImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapChain.images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
+            enum TestScenario
+            {
+                ClearTexture,
+                CopyTexture,
+                StorageImage
+            };
+
+            //Test #1 : Clear inputTextureTest image
+            TestScenario testScenario = StorageImage;
+            switch(testScenario)
+            {
+                case ClearTexture:
+                {
+                    VkClearColorValue feedbackClearColor = { {0.025f, 0.825f, 1.0f, 1.0f} };
+                    VkImageSubresourceRange feedbackSubresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+                    vkCmdClearColorImage(
+                        drawCmdBuffers[i],
+                        raytracingFeedbackImage.image,
+                        VK_IMAGE_LAYOUT_GENERAL,
+                        &feedbackClearColor,
+                        1,
+                        &feedbackSubresourceRange);
+                    break;
+                }
+                case CopyTexture:
+                {
+                    VkImageCopy copyRegion{};
+                    copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+                    copyRegion.srcOffset = { 0, 0, 0 };
+                    copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+                    copyRegion.dstOffset = { 0, 0, 0 };
+                    copyRegion.extent = { std::min(this->inputTextureTest.width, width),
+                                          std::min(this->inputTextureTest.height,height), 1 };
+
+                    vkCmdCopyImage(drawCmdBuffers[i], this->inputTextureTest.image, VK_IMAGE_LAYOUT_GENERAL, raytracingFeedbackImage.image, VK_IMAGE_LAYOUT_GENERAL, 1, &copyRegion);
+                    break;
+                }
+                case StorageImage:
+                {
+                    vkCmdCopyImage(drawCmdBuffers[i], storageImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, raytracingFeedbackImage.image, VK_IMAGE_LAYOUT_GENERAL, 1, &copyRegion);
+                    break;
+                }
+                default: break;
+            }
+            
 			// Transition swap chain image back for presentation
 			vks::tools::setImageLayout(
 				drawCmdBuffers[i],
@@ -677,53 +745,6 @@ public:
                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                 VK_IMAGE_LAYOUT_GENERAL,
                 subresourceRange);
-
-            //Test:
-            VkClearColorValue feedbackClearColor = {{0.025f, 0.025f, 1.0f, 1.0f}};
-            VkImageSubresourceRange feedbackSubresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-            vkCmdClearColorImage(
-                drawCmdBuffers[i],
-                raytracingFeedbackImage.image,
-                VK_IMAGE_LAYOUT_GENERAL,
-                &feedbackClearColor,
-                1,
-                &feedbackSubresourceRange);
-                
-            /*
-            VkImageCopy feedbackCopyRegion{};
-            feedbackCopyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-            feedbackCopyRegion.srcOffset = { 0, 0, 0 };
-            feedbackCopyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-            feedbackCopyRegion.dstOffset = { 0, 0, 0 };
-            feedbackCopyRegion.extent = { width, height, 1 };
-
-			// Transition ray tracing output image back to general layout
-			vks::tools::setImageLayout(
-				drawCmdBuffers[i],
-				storageImage.image,
-				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				VK_IMAGE_LAYOUT_GENERAL,
-				subresourceRange);
-
-            //vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5, &this->inputTextureTest.descriptor),
-            //This command shows that I CAN copy the inputTextureTest to
-
-            //vkCmdCopyImage(drawCmdBuffers[i], this->inputTextureTest.image, VK_IMAGE_LAYOUT_GENERAL, raytracingFeedbackImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, &copyRegion);
-            if((int)frameCounter%100==0)
-                vkCmdCopyImage(drawCmdBuffers[i], this->inputTextureTest.image, VK_IMAGE_LAYOUT_GENERAL, raytracingFeedbackImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, &copyRegion);
-            else
-
-            {
-                vkCmdClearColorImage(
-                    drawCmdBuffers[i],
-                    raytracingFeedbackImage.image,
-                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                    &feedbackClearColor,
-                    1,
-                    &feedbackSubresourceRange);
-            }
-            */
-            //vkCmdCopyImage(drawCmdBuffers[i], storageImage.image, VK_IMAGE_LAYOUT_GENERAL, raytracingFeedbackImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, &copyRegion);
 
 			drawUI(drawCmdBuffers[i], frameBuffers[i]);
 
@@ -783,7 +804,7 @@ public:
 
 	void loadAssets()
 	{
-		this->inputTextureTest.loadFromFile(getAssetPath() + "textures/stonefloor03_color_height_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue);
+		this->inputTextureTest.loadFromFile(getAssetPath() + "textures/stonefloor03_color_height_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_GENERAL);
 	}
 
 	void draw()
