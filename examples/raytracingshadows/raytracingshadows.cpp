@@ -693,12 +693,12 @@ public:
             };
 
             //Test #1 : Clear inputTextureTest image
-            TestScenario testScenario = StorageImage;
+            TestScenario testScenario = ClearTexture;
             switch(testScenario)
             {
                 case ClearTexture:
                 {
-                    VkClearColorValue feedbackClearColor = { {0.025f, 0.825f, 1.0f, 1.0f} };
+                    VkClearColorValue feedbackClearColor = { { std::fmod(uniformData.frameNo / 300.0f,1.0f) , 0.825f, 1.0f, 1.0f} };
                     VkImageSubresourceRange feedbackSubresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
                     vkCmdClearColorImage(
                         drawCmdBuffers[i],
@@ -724,7 +724,15 @@ public:
                 }
                 case StorageImage:
                 {
+                    VkImageCopy copyRegion{};
+                    copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+                    copyRegion.srcOffset = { 0, 0, 0 };
+                    copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+                    copyRegion.dstOffset = { 0, 0, 0 };
+
+                    vkQueueWaitIdle(queue);
                     vkCmdCopyImage(drawCmdBuffers[i], storageImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, raytracingFeedbackImage.image, VK_IMAGE_LAYOUT_GENERAL, 1, &copyRegion);
+                    vkQueueWaitIdle(queue);
                     break;
                 }
                 default: break;
@@ -809,6 +817,7 @@ public:
 
 	void draw()
 	{
+        buildCommandBuffers(); //Added temp!
 		VulkanExampleBase::prepareFrame();
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &drawCmdBuffers[currentBuffer];
