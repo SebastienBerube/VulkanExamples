@@ -204,9 +204,9 @@ public:
 	};
 	struct OffscreenPass {
 		int32_t width, height;
-		VkRenderPass renderPass;
+		VkRenderPass renderPass; //S.B. Note : This renderPass is used for the color AND the blur pass. That's a bit strange. There are 2 different framebuffers however, it seems. One for bright color output, one for vertical blur.
 		VkSampler sampler;
-		std::array<FrameBuffer, 2> framebuffers;
+		std::array<FrameBuffer, 2> framebuffers; //S.B. Note : Color and blur Framebuffers?
 	} offscreenPass;
 
 	VulkanExample() : VulkanExampleBase(ENABLE_VALIDATION)
@@ -337,9 +337,9 @@ public:
 		attachments[1] = frameBuf->depth.view;
 
 		VkFramebufferCreateInfo fbufCreateInfo = vks::initializers::framebufferCreateInfo();
-		fbufCreateInfo.renderPass = offscreenPass.renderPass;
+		fbufCreateInfo.renderPass = offscreenPass.renderPass; 
 		fbufCreateInfo.attachmentCount = 2;
-		fbufCreateInfo.pAttachments = attachments;
+		fbufCreateInfo.pAttachments = attachments; //S.B. Note : Render Pass Subpass Dependencies
 		fbufCreateInfo.width = FB_DIM;
 		fbufCreateInfo.height = FB_DIM;
 		fbufCreateInfo.layers = 1;
@@ -395,9 +395,14 @@ public:
 		subpassDescription.pColorAttachments = &colorReference;
 		subpassDescription.pDepthStencilAttachment = &depthReference;
 
+        // S.B. Note : Render Pass Subpass Dependencies
 		// Use subpass dependencies for layout transitions
 		std::array<VkSubpassDependency, 2> dependencies;
 
+
+        // S.B. Questions:
+        // - why 2 subpass dependencies? 
+        // - why are they different? (src/dst inverted in some places)
 		dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
 		dependencies[0].dstSubpass = 0;
 		dependencies[0].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
@@ -467,14 +472,21 @@ public:
 				clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
 				clearValues[1].depthStencil = { 1.0f, 0 };
 
-                VkRenderPassBeginInfo renderPassBeginInfo = vks::initializers::renderPassBeginInfo();
-				renderPassBeginInfo.renderPass = offscreenPass.renderPass;
-				renderPassBeginInfo.framebuffer = offscreenPass.framebuffers[0].framebuffer;
-				renderPassBeginInfo.renderArea.extent.width = offscreenPass.width;
-				renderPassBeginInfo.renderArea.extent.height = offscreenPass.height;
-				renderPassBeginInfo.clearValueCount = 2;
-				renderPassBeginInfo.pClearValues = clearValues;
 
+                VkRenderPassBeginInfo renderPassBeginInfo = vks::initializers::renderPassBeginInfo();
+
+                //Common render pass information
+                {
+                    renderPassBeginInfo.renderPass = offscreenPass.renderPass;
+                    renderPassBeginInfo.renderArea.extent.width = offscreenPass.width;
+                    renderPassBeginInfo.renderArea.extent.height = offscreenPass.height;
+                    renderPassBeginInfo.clearValueCount = 2;
+                    renderPassBeginInfo.pClearValues = clearValues;
+                }
+                
+                //Use the 1st framebuffer from offscreenPass, for glowing parts rendering
+                renderPassBeginInfo.framebuffer = offscreenPass.framebuffers[0].framebuffer; //S.B. Note : Render Pass Subpass Dependencies
+				
 				viewport = vks::initializers::viewport((float)offscreenPass.width, (float)offscreenPass.height, 0.0f, 1.0f);
 				vkCmdSetViewport(drawCmdBuffers[i], 0, 1, &viewport);
 
@@ -494,6 +506,8 @@ public:
 
 				models.ufoGlow.draw(drawCmdBuffers[i]);
 
+                //Here, before vkCmdEndRenderPass, I should try to copy the vkImage into a texture, and use an image memory barrier as an alternate way to make sure the image memory is available.
+
 				vkCmdEndRenderPass(drawCmdBuffers[i]);
 
                 DebugMarker::endRegion(drawCmdBuffers[i]);
@@ -507,6 +521,7 @@ public:
 
                 DebugMarker::beginRegion(drawCmdBuffers[i], "Bloom vertical blur", glm::vec4(0.0f, 1.0f, 0.05f, 1.0f));
 
+                //Use the end framebuffer from offscreenPass, to blur glowing parts rendering
 				renderPassBeginInfo.framebuffer = offscreenPass.framebuffers[1].framebuffer;
 
 				vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
