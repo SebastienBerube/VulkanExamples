@@ -40,5 +40,13 @@ void main()
 			result += texture(samplerColor, inUV - vec2(0.0, tex_offset.y * i)).rgb * weight[i] * ubo.blurStrength;
 		}
 	}
-	outFragColor = vec4(result, 1.0);
+
+    outFragColor = vec4(result, 1.0);
+
+    /*if (blurdirection == 0 &&
+        inUV.x < 0.5 &&
+        inUV.y < 0.5 )
+    {
+      outFragColor = vec4(texture(samplerColor, inUV*2.0).rgb * 20., 1.0);
+    } */
 }
