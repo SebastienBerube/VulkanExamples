@@ -202,11 +202,22 @@ public:
 		FrameBufferAttachment color, depth;
 		VkDescriptorImageInfo descriptor;
 	};
+    //Same as raytracingshadows.cpp (sample commented out, however)
+    //Also, same as FrameBufferAttachment in bloom.cpp.
+    struct FeedbackImage {
+        VkImage image = VK_NULL_HANDLE;
+        VkDeviceMemory mem = VK_NULL_HANDLE;
+        VkImageView view = VK_NULL_HANDLE;
+        VkDescriptorImageInfo descriptor;
+        VkSampler sampler = VK_NULL_HANDLE;
+    };
 	struct OffscreenPass {
 		int32_t width, height;
 		VkRenderPass renderPass; //S.B. Note : This renderPass is used for the color AND the blur pass. That's a bit strange. There are 2 different framebuffers however, it seems. One for bright color output, one for vertical blur.
 		VkSampler sampler;
+        FeedbackImage previousGlowBuffer;
 		std::array<FrameBuffer, 2> framebuffers; //S.B. Note : Color and blur Framebuffers?
+
 	} offscreenPass;
 
 	VulkanExample() : VulkanExampleBase(ENABLE_VALIDATION)
@@ -221,6 +232,9 @@ public:
 
 	~VulkanExample()
 	{
+        deleteFeedbackSampler();
+        deleteFeedbackImage();
+
 		// Clean up used Vulkan resources
 		// Note : Inherited destructor cleans up resources stored in base class
 
@@ -239,6 +253,7 @@ public:
 
 			vkDestroyFramebuffer(device, framebuffer.framebuffer, nullptr);
 		}
+
 		vkDestroyRenderPass(device, offscreenPass.renderPass, nullptr);
 
 		vkDestroyPipeline(device, pipelines.blurHorz, nullptr);
@@ -261,6 +276,121 @@ public:
 		cubemap.destroy();
         inputTextureTest.destroy();
 	}
+
+
+    void createFeedbackImage()
+    {
+        if (offscreenPass.previousGlowBuffer.image != VK_NULL_HANDLE) {
+            deleteFeedbackImage();
+        }
+
+        //Similar to bloom.cpp
+        VkMemoryAllocateInfo memAlloc = vks::initializers::memoryAllocateInfo();
+        VkMemoryRequirements memReqs;
+
+        VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM;
+
+        // Color attachment : vkCreateImage
+        {
+            VkImageCreateInfo createInfo = vks::initializers::imageCreateInfo();
+            createInfo.imageType = VK_IMAGE_TYPE_2D;
+            createInfo.format = colorFormat;
+            createInfo.extent.width = FB_DIM;
+            createInfo.extent.height = FB_DIM;
+            createInfo.extent.depth = 1;
+            createInfo.mipLevels = 1;
+            createInfo.arrayLayers = 1;
+            createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+            createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+            // We will sample directly from the color attachment
+            createInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+            createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            VK_CHECK_RESULT(vkCreateImage(device, &createInfo, nullptr, &offscreenPass.previousGlowBuffer.image));
+        }
+
+        // Color attachment : Allocate and bind image memory
+        {
+            vkGetImageMemoryRequirements(device, offscreenPass.previousGlowBuffer.image, &memReqs);
+            memAlloc.allocationSize = memReqs.size;
+            memAlloc.memoryTypeIndex = vulkanDevice->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+            VK_CHECK_RESULT(vkAllocateMemory(device, &memAlloc, nullptr, &offscreenPass.previousGlowBuffer.mem));
+            VK_CHECK_RESULT(vkBindImageMemory(device, offscreenPass.previousGlowBuffer.image, offscreenPass.previousGlowBuffer.mem, 0));
+        }
+
+        // Color attachment : vkCreateImageView
+        {
+            VkImageViewCreateInfo createInfo = vks::initializers::imageViewCreateInfo();
+            createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            createInfo.format = colorFormat;
+            createInfo.flags = 0;
+            createInfo.subresourceRange = {};
+            createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            createInfo.subresourceRange.baseMipLevel = 0;
+            createInfo.subresourceRange.levelCount = 1;
+            createInfo.subresourceRange.baseArrayLayer = 0;
+            createInfo.subresourceRange.layerCount = 1;
+            createInfo.image = offscreenPass.previousGlowBuffer.image;
+            VK_CHECK_RESULT(vkCreateImageView(device, &createInfo, nullptr, &offscreenPass.previousGlowBuffer.view));
+        }
+
+        //TODO : Continue reading and understanding prepareOffscreenFramebuffer() in bloom.cpp
+        //...
+        //Questions:
+        //  - Do we need a VkFramebufferCreateInfo here? Perhaps we don't need it if
+        //    we just copy the vkImage, without actually rendering into it.
+
+        createFeedbackSampler();
+
+        offscreenPass.previousGlowBuffer.descriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL; //TODO : Verify if this layout is correct
+        offscreenPass.previousGlowBuffer.descriptor.imageView = offscreenPass.previousGlowBuffer.view;
+        offscreenPass.previousGlowBuffer.descriptor.sampler = offscreenPass.previousGlowBuffer.sampler;
+
+        //Prepare layout
+        VkImageSubresourceRange subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        VkCommandBuffer commandBuffer = vulkanDevice->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+        vks::tools::setImageLayout(
+            commandBuffer,
+            offscreenPass.previousGlowBuffer.image,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_GENERAL,
+            subresourceRange);
+
+        vulkanDevice->flushCommandBuffer(commandBuffer, queue);
+    }
+
+    void deleteFeedbackImage()
+    {
+        //raytracingFeedbackImage
+        vkDestroyImageView(device, offscreenPass.previousGlowBuffer.view, nullptr);
+        vkDestroyImage(device, offscreenPass.previousGlowBuffer.image, nullptr);
+        vkFreeMemory(device, offscreenPass.previousGlowBuffer.mem, nullptr);
+        offscreenPass.previousGlowBuffer = {};
+    }
+
+    void createFeedbackSampler()
+    {
+        //Inspired from bloom.cpp (prepareOffscreen)
+        // 
+        // Create sampler to sample from the feedback attachments
+        VkSamplerCreateInfo sampler = vks::initializers::samplerCreateInfo();
+        sampler.magFilter = VK_FILTER_LINEAR;
+        sampler.minFilter = VK_FILTER_LINEAR;
+        sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        sampler.addressModeV = sampler.addressModeU;
+        sampler.addressModeW = sampler.addressModeU;
+        sampler.mipLodBias = 0.0f;
+        sampler.maxAnisotropy = 1.0f;
+        sampler.minLod = 0.0f;
+        sampler.maxLod = 1.0f;
+        sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+        VK_CHECK_RESULT(vkCreateSampler(device, &sampler, nullptr, &offscreenPass.previousGlowBuffer.sampler));
+    }
+
+    void deleteFeedbackSampler()
+    {
+        vkDestroySampler(device, offscreenPass.previousGlowBuffer.sampler, nullptr);
+    }
 
 	// Setup the offscreen framebuffer for rendering the mirrored scene
 	// The color attachment of this framebuffer will then be sampled from
@@ -449,6 +579,8 @@ public:
 		// Create two frame buffers
 		prepareOffscreenFramebuffer(&offscreenPass.framebuffers[0], FB_COLOR_FORMAT, fbDepthFormat);
 		prepareOffscreenFramebuffer(&offscreenPass.framebuffers[1], FB_COLOR_FORMAT, fbDepthFormat);
+        
+        createFeedbackImage();
 	}
 
 	void buildCommandBuffers()
@@ -507,10 +639,30 @@ public:
 				models.ufoGlow.draw(drawCmdBuffers[i]);
 
                 //Here, before vkCmdEndRenderPass, I should try to copy the vkImage into a texture, and use an image memory barrier as an alternate way to make sure the image memory is available.
+                //Note : After trying it, this is not possible inside a render pass. Validation layer logs that vkCmdCopyImage cannot be used inside a render pass.
 
 				vkCmdEndRenderPass(drawCmdBuffers[i]);
 
                 DebugMarker::endRegion(drawCmdBuffers[i]);
+
+                //Test : Copy Test image to dst buffer
+                {
+                    VkImageCopy copyRegion{};
+                    copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+                    copyRegion.srcOffset = { 0, 0, 0 };
+                    copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+                    copyRegion.dstOffset = { 0, 0, 0 };
+                    copyRegion.extent = { std::min((uint32_t)FB_DIM, inputTextureTest.width),
+                                          std::min((uint32_t)FB_DIM, inputTextureTest.height), 1 };
+
+                    vkCmdCopyImage(drawCmdBuffers[i],
+                        inputTextureTest.image,
+                        inputTextureTest.imageLayout, //VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL
+                        offscreenPass.previousGlowBuffer.image,
+                        VK_IMAGE_LAYOUT_GENERAL,
+                        1,
+                        &copyRegion);
+                }
 
 				/*
 					Second render pass: Vertical blur
@@ -607,7 +759,7 @@ public:
 		models.ufoGlow.loadFromFile(getAssetPath() + "models/retroufo_glow.gltf", vulkanDevice, queue, glTFLoadingFlags);
 		models.skyBox.loadFromFile(getAssetPath() + "models/cube.gltf", vulkanDevice, queue, glTFLoadingFlags);
 		cubemap.loadFromFile(getAssetPath() + "textures/cubemap_space.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue);
-        inputTextureTest.loadFromFile(getAssetPath() + "textures/stonefloor03_color_height_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue);
+        inputTextureTest.loadFromFile(getAssetPath() + "textures/stonefloor03_color_height_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_GENERAL);
 	}
 
 	void setupDescriptorPool()
@@ -678,7 +830,7 @@ public:
 		VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &descriptorSetAllocInfo, &descriptorSets.scene));
 		writeDescriptorSets = {
 			vks::initializers::writeDescriptorSet(descriptorSets.scene, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &uniformBuffers.scene.descriptor),						// Binding 0: Vertex shader uniform buffer
-            vks::initializers::writeDescriptorSet(descriptorSets.scene, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &this->inputTextureTest.descriptor)				// Binding 3: Fragment shader input texture sampler
+            vks::initializers::writeDescriptorSet(descriptorSets.scene, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3, &offscreenPass.previousGlowBuffer.descriptor)		// Binding 3: Fragment shader input texture sampler
 		};
 		vkUpdateDescriptorSets(device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, NULL);
 
