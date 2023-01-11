@@ -408,8 +408,8 @@ public:
 		image.samples = VK_SAMPLE_COUNT_1_BIT;
 		image.tiling = VK_IMAGE_TILING_OPTIMAL;
 		// We will sample directly from the color attachment
-		image.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-
+		image.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        
 		VkMemoryAllocateInfo memAlloc = vks::initializers::memoryAllocateInfo();
 		VkMemoryRequirements memReqs;
 
@@ -655,13 +655,35 @@ public:
                     copyRegion.extent = { std::min((uint32_t)FB_DIM, inputTextureTest.width),
                                           std::min((uint32_t)FB_DIM, inputTextureTest.height), 1 };
 
+                    VkImageSubresourceRange subresourceRange = {};
+                    subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                    subresourceRange.baseMipLevel = 0;
+                    subresourceRange.levelCount = 1;
+                    subresourceRange.baseArrayLayer = 0;
+                    subresourceRange.layerCount = 1;
+
+                    //VK_IMAGE_LAYOUT_GENERAL
+                    vks::tools::setImageLayout(
+                        drawCmdBuffers[i],
+                        offscreenPass.framebuffers[0].color.image,
+                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                        VK_IMAGE_LAYOUT_GENERAL,
+                        subresourceRange);
+
                     vkCmdCopyImage(drawCmdBuffers[i],
-                        inputTextureTest.image,
-                        inputTextureTest.imageLayout, //VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL
+                        offscreenPass.framebuffers[0].color.image, //inputTextureTest.image,
+                        VK_IMAGE_LAYOUT_GENERAL, //inputTextureTest.imageLayout, //VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL
                         offscreenPass.previousGlowBuffer.image,
                         VK_IMAGE_LAYOUT_GENERAL,
                         1,
                         &copyRegion);
+
+                    vks::tools::setImageLayout(
+                        drawCmdBuffers[i],
+                        offscreenPass.framebuffers[0].color.image,
+                        VK_IMAGE_LAYOUT_GENERAL,
+                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                        subresourceRange);
                 }
 
 				/*
