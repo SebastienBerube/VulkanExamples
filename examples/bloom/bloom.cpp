@@ -583,6 +583,51 @@ public:
         createFeedbackImage();
 	}
 
+    static void CopyImageTest(VkCommandBuffer& cmdBuf,
+                              VkImage srcImage,
+                              VkImageLayout srcImageLayout,
+                              VkImage dstImage,
+                              uint32_t width,
+                              uint32_t height)
+    {
+        VkImageCopy copyRegion{};
+        copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+        copyRegion.srcOffset = { 0, 0, 0 };
+        copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+        copyRegion.dstOffset = { 0, 0, 0 };
+        copyRegion.extent = { width, height, 1 };
+
+        VkImageSubresourceRange subresourceRange = {};
+        subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        subresourceRange.baseMipLevel = 0;
+        subresourceRange.levelCount = 1;
+        subresourceRange.baseArrayLayer = 0;
+        subresourceRange.layerCount = 1;
+
+        vks::tools::setImageLayout(
+            cmdBuf,
+            srcImage,
+            srcImageLayout,
+            VK_IMAGE_LAYOUT_GENERAL,
+            subresourceRange);
+
+        vkCmdCopyImage(
+            cmdBuf,
+            srcImage,
+            VK_IMAGE_LAYOUT_GENERAL,
+            dstImage,
+            VK_IMAGE_LAYOUT_GENERAL,
+            1,
+            &copyRegion);
+
+        vks::tools::setImageLayout(
+            cmdBuf,
+            srcImage,
+            VK_IMAGE_LAYOUT_GENERAL,
+            srcImageLayout,
+            subresourceRange);
+    }
+
 	void buildCommandBuffers()
 	{
 		VkCommandBufferBeginInfo cmdBufInfo = vks::initializers::commandBufferBeginInfo();
@@ -645,47 +690,19 @@ public:
 
                 DebugMarker::endRegion(drawCmdBuffers[i]);
 
-                //Test : Copy Test image to dst buffer
-                {
-                    VkImageCopy copyRegion{};
-                    copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-                    copyRegion.srcOffset = { 0, 0, 0 };
-                    copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-                    copyRegion.dstOffset = { 0, 0, 0 };
-                    copyRegion.extent = { std::min((uint32_t)FB_DIM, inputTextureTest.width),
-                                          std::min((uint32_t)FB_DIM, inputTextureTest.height), 1 };
-
-                    VkImageSubresourceRange subresourceRange = {};
-                    subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-                    subresourceRange.baseMipLevel = 0;
-                    subresourceRange.levelCount = 1;
-                    subresourceRange.baseArrayLayer = 0;
-                    subresourceRange.layerCount = 1;
-
-                    //VK_IMAGE_LAYOUT_GENERAL
-                    vks::tools::setImageLayout(
-                        drawCmdBuffers[i],
-                        offscreenPass.framebuffers[0].color.image,
-                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                        VK_IMAGE_LAYOUT_GENERAL,
-                        subresourceRange);
-
-                    vkCmdCopyImage(drawCmdBuffers[i],
-                        offscreenPass.framebuffers[0].color.image, //inputTextureTest.image,
-                        VK_IMAGE_LAYOUT_GENERAL, //inputTextureTest.imageLayout, //VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL
-                        offscreenPass.previousGlowBuffer.image,
-                        VK_IMAGE_LAYOUT_GENERAL,
-                        1,
-                        &copyRegion);
-
-                    vks::tools::setImageLayout(
-                        drawCmdBuffers[i],
-                        offscreenPass.framebuffers[0].color.image,
-                        VK_IMAGE_LAYOUT_GENERAL,
-                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                        subresourceRange);
-                }
-
+                DebugMarker::beginRegion(drawCmdBuffers[i], "Copy Section", glm::vec4(1.0f, 0.0f, 0.05f, 1.0f));
+                CopyImageTest(
+                    drawCmdBuffers[i],
+                    offscreenPass.framebuffers[0].color.image,
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    offscreenPass.previousGlowBuffer.image,
+                    std::min((uint32_t)FB_DIM, inputTextureTest.width),
+                    std::min((uint32_t)FB_DIM, inputTextureTest.height));
+                
+                //vkQueueWaitIdle(queue);
+                
+                DebugMarker::endRegion(drawCmdBuffers[i]);
+                
 				/*
 					Second render pass: Vertical blur
 
