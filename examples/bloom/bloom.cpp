@@ -581,7 +581,7 @@ public:
 		prepareOffscreenFramebuffer(&offscreenPass.framebuffers[1], FB_COLOR_FORMAT, fbDepthFormat);
         
         createFeedbackImage();
-	}
+    }
 
     static void CopyImageTest(VkCommandBuffer& cmdBuf,
                               VkImage srcImage,
@@ -590,6 +590,9 @@ public:
                               uint32_t width,
                               uint32_t height)
     {
+        DebugMarker::beginRegion(cmdBuf, "Copy Section", glm::vec4(1.0f, 0.0f, 0.05f, 1.0f));
+
+        //vkQueueWaitIdle(queue);
         VkImageCopy copyRegion{};
         copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
         copyRegion.srcOffset = { 0, 0, 0 };
@@ -626,6 +629,8 @@ public:
             VK_IMAGE_LAYOUT_GENERAL,
             srcImageLayout,
             subresourceRange);
+
+        DebugMarker::endRegion(cmdBuf);
     }
 
 	void buildCommandBuffers()
@@ -690,19 +695,6 @@ public:
 
                 DebugMarker::endRegion(drawCmdBuffers[i]);
 
-                DebugMarker::beginRegion(drawCmdBuffers[i], "Copy Section", glm::vec4(1.0f, 0.0f, 0.05f, 1.0f));
-                CopyImageTest(
-                    drawCmdBuffers[i],
-                    offscreenPass.framebuffers[0].color.image,
-                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                    offscreenPass.previousGlowBuffer.image,
-                    std::min((uint32_t)FB_DIM, inputTextureTest.width),
-                    std::min((uint32_t)FB_DIM, inputTextureTest.height));
-                
-                //vkQueueWaitIdle(queue);
-                
-                DebugMarker::endRegion(drawCmdBuffers[i]);
-                
 				/*
 					Second render pass: Vertical blur
 
@@ -785,6 +777,16 @@ public:
 				vkCmdEndRenderPass(drawCmdBuffers[i]);
 
                 DebugMarker::endRegion(drawCmdBuffers[i]);
+
+
+                CopyImageTest(
+                    drawCmdBuffers[i],
+                    swapChain.buffers[i].image,
+                    //offscreenPass.framebuffers[1].color.image,
+                    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                    offscreenPass.previousGlowBuffer.image,
+                    std::min((uint32_t)FB_DIM, inputTextureTest.width),
+                    std::min((uint32_t)FB_DIM, inputTextureTest.height));
 			}
 
 			VK_CHECK_RESULT(vkEndCommandBuffer(drawCmdBuffers[i]));
