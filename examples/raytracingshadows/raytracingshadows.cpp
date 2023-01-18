@@ -11,6 +11,24 @@
 #include "VulkanRaytracingSample.h"
 #include "VulkanglTFModel.h"
 
+enum class TestScenario
+{
+    ClearTexture,
+    CopyTexture,
+    StorageImage
+};
+
+void FillTestTexture(VkCommandBuffer cmdBuffer,
+    int frameNo,
+    TestScenario testScenario,
+    unsigned int copyWidth,
+    unsigned int copyHeight,
+    VkImageLayout srcLayout,
+    VkImage srcImage,
+    VkImage dstImage,
+    VkImage resourceImage,
+    VkQueue queue);
+
 class VulkanExample : public VulkanRaytracingSample
 {
 
@@ -685,58 +703,21 @@ public:
 			
             vkCmdCopyImage(drawCmdBuffers[i], storageImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapChain.images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
-            enum TestScenario
-            {
-                ClearTexture,
-                CopyTexture,
-                StorageImage
-            };
 
-            //Test #1 : Clear inputTextureTest image
-            TestScenario testScenario = ClearTexture;
-            switch(testScenario)
-            {
-                case ClearTexture:
-                {
-                    VkClearColorValue feedbackClearColor = { { std::fmod(uniformData.frameNo / 300.0f,1.0f) , 0.825f, 1.0f, 1.0f} };
-                    VkImageSubresourceRange feedbackSubresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-                    vkCmdClearColorImage(
-                        drawCmdBuffers[i],
-                        raytracingFeedbackImage.image,
-                        VK_IMAGE_LAYOUT_GENERAL,
-                        &feedbackClearColor,
-                        1,
-                        &feedbackSubresourceRange);
-                    break;
-                }
-                case CopyTexture:
-                {
-                    VkImageCopy copyRegion{};
-                    copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-                    copyRegion.srcOffset = { 0, 0, 0 };
-                    copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-                    copyRegion.dstOffset = { 0, 0, 0 };
-                    copyRegion.extent = { std::min(this->inputTextureTest.width, width),
-                                          std::min(this->inputTextureTest.height,height), 1 };
-
-                    vkCmdCopyImage(drawCmdBuffers[i], this->inputTextureTest.image, VK_IMAGE_LAYOUT_GENERAL, raytracingFeedbackImage.image, VK_IMAGE_LAYOUT_GENERAL, 1, &copyRegion);
-                    break;
-                }
-                case StorageImage:
-                {
-                    VkImageCopy copyRegion{};
-                    copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-                    copyRegion.srcOffset = { 0, 0, 0 };
-                    copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-                    copyRegion.dstOffset = { 0, 0, 0 };
-
-                    vkQueueWaitIdle(queue);
-                    vkCmdCopyImage(drawCmdBuffers[i], storageImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, raytracingFeedbackImage.image, VK_IMAGE_LAYOUT_GENERAL, 1, &copyRegion);
-                    vkQueueWaitIdle(queue);
-                    break;
-                }
-                default: break;
-            }
+            //That works
+            /*
+            FillTestTexture(
+                drawCmdBuffers[i],
+                uniformData.frameNo,
+                TestScenario::CopyTexture,
+                std::min(this->inputTextureTest.width, width),
+                std::min(this->inputTextureTest.height, height),
+                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                storageImage.image,
+                raytracingFeedbackImage.image,
+                this->inputTextureTest.image,
+                queue);
+            */
             
 			// Transition swap chain image back for presentation
 			vks::tools::setImageLayout(
@@ -754,7 +735,39 @@ public:
                 VK_IMAGE_LAYOUT_GENERAL,
                 subresourceRange);
 
-			drawUI(drawCmdBuffers[i], frameBuffers[i]);
+            //Verify: is frameBuffers[i] somehow pointing to swapChain.images[i] ?
+            // Guess: probably, but I should verify. VkFramebuffer is an opaque Vukan object
+            // Doc: Render passes operate in conjunction with framebuffers. Framebuffers represent a collection of specific memory attachments that a render pass instance uses.
+            // See: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebuffer.html
+            drawUI(drawCmdBuffers[i], frameBuffers[i]);
+
+            {
+                vks::tools::setImageLayout(
+                    drawCmdBuffers[i],
+                    swapChain.images[i],
+                    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                    VK_IMAGE_LAYOUT_GENERAL,
+                    subresourceRange);
+
+                FillTestTexture(
+                    drawCmdBuffers[i],
+                    uniformData.frameNo,
+                    TestScenario::StorageImage,
+                    width,
+                    height,
+                    VK_IMAGE_LAYOUT_GENERAL,
+                    swapChain.images[i],      //Source Image
+                    raytracingFeedbackImage.image,
+                    this->inputTextureTest.image,
+                    queue);
+
+                vks::tools::setImageLayout(
+                    drawCmdBuffers[i],
+                    swapChain.images[i],
+                    VK_IMAGE_LAYOUT_GENERAL,
+                    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                    subresourceRange);
+            }
 
 			VK_CHECK_RESULT(vkEndCommandBuffer(drawCmdBuffers[i]));
 		}
@@ -834,5 +847,74 @@ public:
 			updateUniformBuffers();
 	}
 };
+
+//cmdBuffer = drawCmdBuffers[i]
+//frameNo = uniformData.frameNo
+//copyWidth = std::min(this->inputTextureTest.width, width)
+//copyHeight = std::min(this->inputTextureTest.height,height)
+//srcImage = storageImage.image
+//dstImage = raytracingFeedbackImage.image
+//resourceImage = this->inputTextureTest.image
+//queue = queue
+//
+
+void FillTestTexture(VkCommandBuffer cmdBuffer,
+    int frameNo,
+    TestScenario testScenario,
+    unsigned int copyWidth,
+    unsigned int copyHeight,
+    VkImageLayout srcLayout,
+    VkImage srcImage,
+    VkImage dstImage,
+    VkImage resourceImage,
+    VkQueue queue)
+{
+
+    //Test #1 : Clear inputTextureTest image
+    
+    switch (testScenario)
+    {
+        case TestScenario::ClearTexture:
+        {
+            VkClearColorValue feedbackClearColor = { { std::fmod(frameNo / 300.0f,1.0f) , 0.825f, 1.0f, 1.0f } };
+            VkImageSubresourceRange feedbackSubresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+            vkCmdClearColorImage(
+                cmdBuffer,
+                dstImage,
+                VK_IMAGE_LAYOUT_GENERAL,
+                &feedbackClearColor,
+                1,
+                &feedbackSubresourceRange);
+            break;
+        }
+        case TestScenario::CopyTexture:
+        {
+            VkImageCopy copyRegion{};
+            copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+            copyRegion.srcOffset = { 0, 0, 0 };
+            copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+            copyRegion.dstOffset = { 0, 0, 0 };
+            copyRegion.extent = { copyWidth, copyHeight, 1 };
+
+            vkCmdCopyImage(cmdBuffer, resourceImage, VK_IMAGE_LAYOUT_GENERAL, dstImage, VK_IMAGE_LAYOUT_GENERAL, 1, &copyRegion);
+            break;
+        }
+        case TestScenario::StorageImage:
+        {
+            VkImageCopy copyRegion{};
+            copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+            copyRegion.srcOffset = { 0, 0, 0 };
+            copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+            copyRegion.dstOffset = { 0, 0, 0 };
+            copyRegion.extent = { copyWidth, copyHeight, 1 };
+
+            vkQueueWaitIdle(queue);
+            vkCmdCopyImage(cmdBuffer, srcImage, srcLayout, dstImage, VK_IMAGE_LAYOUT_GENERAL, 1, &copyRegion);
+            vkQueueWaitIdle(queue);
+            break;
+        }
+        default: break;
+    }
+}
 
 VULKAN_EXAMPLE_MAIN()
