@@ -144,6 +144,7 @@ set(EXAMPLES
 	ssao
 	stencilbuffer
 	subpasses
+	synchronization
 	terraintessellation
 	tessellation
 	textoverlay
