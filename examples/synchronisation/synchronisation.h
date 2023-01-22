@@ -26,73 +26,73 @@
 class VulkanExample : public VulkanExampleBase
 {
 public:
-	struct {
-		vks::Texture2D glass;
-	} textures;
+    struct {
+        vks::Texture2D glass;
+    } textures;
 
-	struct {
-		vkglTF::Model scene;
-		vkglTF::Model transparent;
-	} models;
+    struct {
+        vkglTF::Model scene;
+        vkglTF::Model transparent;
+    } models;
 
-	struct {
-		glm::mat4 projection;
-		glm::mat4 model;
-		glm::mat4 view;
-	} uboGBuffer;
+    struct {
+        glm::mat4 projection;
+        glm::mat4 model;
+        glm::mat4 view;
+    } uboGBuffer;
 
-	struct Light {
-		glm::vec4 position;
-		glm::vec3 color;
-		float radius;
-	};
+    struct Light {
+        glm::vec4 position;
+        glm::vec3 color;
+        float radius;
+    };
 
-	struct {
-		glm::vec4 viewPos;
-		Light lights[NUM_LIGHTS];
-	} uboLights;
+    struct {
+        glm::vec4 viewPos;
+        Light lights[NUM_LIGHTS];
+    } uboLights;
 
-	struct {
-		vks::Buffer GBuffer;
-		vks::Buffer lights;
-	} uniformBuffers;
+    struct {
+        vks::Buffer GBuffer;
+        vks::Buffer lights;
+    } uniformBuffers;
 
-	struct {
-		VkPipeline offscreen;
-		VkPipeline composition;
-		VkPipeline transparent;
-	} pipelines;
+    struct {
+        VkPipeline offscreen;
+        VkPipeline composition;
+        VkPipeline transparent;
+    } pipelines;
 
-	struct {
-		VkPipelineLayout offscreen;
-		VkPipelineLayout composition;
-		VkPipelineLayout transparent;
-	} pipelineLayouts;
+    struct {
+        VkPipelineLayout offscreen;
+        VkPipelineLayout composition;
+        VkPipelineLayout transparent;
+    } pipelineLayouts;
 
-	struct {
-		VkDescriptorSet scene;
-		VkDescriptorSet composition;
-		VkDescriptorSet transparent;
-	} descriptorSets;
+    struct {
+        VkDescriptorSet scene;
+        VkDescriptorSet composition;
+        VkDescriptorSet transparent;
+    } descriptorSets;
 
-	struct {
-		VkDescriptorSetLayout scene;
-		VkDescriptorSetLayout composition;
-		VkDescriptorSetLayout transparent;
-	} descriptorSetLayouts;
+    struct {
+        VkDescriptorSetLayout scene;
+        VkDescriptorSetLayout composition;
+        VkDescriptorSetLayout transparent;
+    } descriptorSetLayouts;
 
-	// G-Buffer framebuffer attachments
-	struct FrameBufferAttachment {
-		VkImage image = VK_NULL_HANDLE;
-		VkDeviceMemory mem = VK_NULL_HANDLE;
-		VkImageView view = VK_NULL_HANDLE;
-		VkFormat format;
-	};
-	struct Attachments {
-		FrameBufferAttachment position, normal, albedo;
-		int32_t width;
-		int32_t height;
-	} attachments;
+    // G-Buffer framebuffer attachments
+    struct FrameBufferAttachment {
+        VkImage image = VK_NULL_HANDLE;
+        VkDeviceMemory mem = VK_NULL_HANDLE;
+        VkImageView view = VK_NULL_HANDLE;
+        VkFormat format;
+    };
+    struct Attachments {
+        FrameBufferAttachment position, normal, albedo;
+        int32_t width;
+        int32_t height;
+    } attachments;
 
     VulkanExample();
 
