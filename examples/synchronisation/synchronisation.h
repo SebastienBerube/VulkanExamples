@@ -98,57 +98,37 @@ public:
 
     ~VulkanExample();
 
-	// Enable physical device features required for this example
-    virtual void getEnabledFeatures();;
+    // Enable physical device features required for this example
+    virtual void getEnabledFeatures();
 
-    void clearAttachment(FrameBufferAttachment* attachment);
-
-	// Create a frame buffer attachment
-    void createAttachment(VkFormat format, VkImageUsageFlags usage, FrameBufferAttachment* attachment);
-
-	// Create color attachments for the G-Buffer components
-    void createGBufferAttachments();
-
-	// Override framebuffer setup from base class, will automatically be called upon setup and if a window is resized
-    void setupFrameBuffer();
-
-	// Override render pass setup from base class
-    void setupRenderPass();
-
-    void buildCommandBuffers();
-
-    void loadAssets();
-
-    void setupDescriptorPool();
-
-    void setupDescriptorSetLayout();
-
-    void setupDescriptorSet();
-
-    void preparePipelines();
-
-	// Create the Vulkan objects used in the composition pass (descriptor sets, pipelines, etc.)
-    void prepareCompositionPass();
-
-	// Prepare and initialize uniform buffer containing shader uniforms
-    void prepareUniformBuffers();
-
-    void updateUniformBufferDeferredMatrices();
-
-    void initLights();
-
-	// Update fragment shader light position uniform block
-    void updateUniformBufferDeferredLights();
-
-    void draw();
-
+    //<Prepare>
     void prepare();
+    void setupRenderPass(); // Note : Called by VulkanExampleBase::prepare()
+    void createGBufferAttachments(); // Note : Called by setupRenderPass()
+    void createAttachment(VkFormat format, VkImageUsageFlags usage, FrameBufferAttachment* attachment); // Note : Called by setupRenderPass()
+    void setupFrameBuffer(); // Note : Called by VulkanExampleBase::prepare()
+    void loadAssets();
+    void initLights();
+    void prepareUniformBuffers(); 
+    void updateUniformBufferDeferredMatrices(); // Note : Called by prepareUniformBuffers()
+    void updateUniformBufferDeferredLights(); // Note : Called by prepareUniformBuffers()
+    void setupDescriptorSetLayout();
+    void preparePipelines();
+    void setupDescriptorPool();
+    void setupDescriptorSet();
+    void prepareCompositionPass();
+    void buildCommandBuffers();
+    //</Prepare>
 
     virtual void render();
 
-    virtual void viewChanged();
+    void draw();
 
     virtual void OnUpdateUIOverlay(vks::UIOverlay* overlay);
+
+    virtual void viewChanged();
+
+    void clearAttachment(FrameBufferAttachment* attachment);
 };
 
 //VULKAN_EXAMPLE_MAIN()
