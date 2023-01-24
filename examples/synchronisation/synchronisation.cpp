@@ -506,8 +506,8 @@ inline void VulkanExample::preparePipelines()
     colorBlendState.pAttachments = blendAttachmentStates.data();
 
     // Offscreen scene rendering pipeline
-    shaderStages[0] = loadShader(getShadersPath() + "subpasses/gbuffer.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-    shaderStages[1] = loadShader(getShadersPath() + "subpasses/gbuffer.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+    shaderStages[0] = loadShader(getShadersPath() + "synchronisation/gbuffer.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+    shaderStages[1] = loadShader(getShadersPath() + "synchronisation/gbuffer.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
     VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCI, nullptr, &pipelines.offscreen));
 }
 
@@ -631,8 +631,8 @@ inline void VulkanExample::prepareCompositionPass()
     VkPipelineDynamicStateCreateInfo dynamicState = vks::initializers::pipelineDynamicStateCreateInfo(dynamicStateEnables);
     std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages;
 
-    shaderStages[0] = loadShader(getShadersPath() + "subpasses/composition.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-    shaderStages[1] = loadShader(getShadersPath() + "subpasses/composition.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+    shaderStages[0] = loadShader(getShadersPath() + "synchronisation/composition.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+    shaderStages[1] = loadShader(getShadersPath() + "synchronisation/composition.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
 
     // Use specialization constants to pass number of lights to the shader
     VkSpecializationMapEntry specializationEntry{};
@@ -713,8 +713,8 @@ inline void VulkanExample::prepareCompositionPass()
     pipelineCI.layout = pipelineLayouts.transparent;
     pipelineCI.subpass = 2;
 
-    shaderStages[0] = loadShader(getShadersPath() + "subpasses/transparent.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-    shaderStages[1] = loadShader(getShadersPath() + "subpasses/transparent.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+    shaderStages[0] = loadShader(getShadersPath() + "synchronisation/transparent.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+    shaderStages[1] = loadShader(getShadersPath() + "synchronisation/transparent.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
     VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCI, nullptr, &pipelines.transparent));
 }
 

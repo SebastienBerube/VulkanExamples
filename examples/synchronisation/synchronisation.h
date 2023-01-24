@@ -28,6 +28,7 @@ class VulkanExample : public VulkanExampleBase
 public:
     struct {
         vks::Texture2D glass;
+        vks::Texture2D inputTest;
     } textures;
 
     struct {
