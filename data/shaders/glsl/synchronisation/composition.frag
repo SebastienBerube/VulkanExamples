@@ -3,6 +3,8 @@
 layout (input_attachment_index = 0, binding = 0) uniform subpassInput samplerposition;
 layout (input_attachment_index = 1, binding = 1) uniform subpassInput samplerNormal;
 layout (input_attachment_index = 2, binding = 2) uniform subpassInput samplerAlbedo;
+//Question : Why the input_attachment_index above? Is it only for subpassInputs?
+layout (binding = 4) uniform sampler2D samplerTextureTest;
 
 layout (location = 0) in vec2 inUV;
 
@@ -64,7 +66,15 @@ void main()
         //vec3 spec = ubo.lights[i].color * albedo.a * pow(NdotR, 32.0) * atten;
 
         fragcolor += diff;// + spec;	
-    }
-
-    outColor = vec4(fragcolor, 1.0);
+    }    	
+   
+   if(inUV.x > 0.5)
+   {
+      vec4 sampledColor = texture(samplerTextureTest, inUV);
+      outColor = sampledColor;
+   }
+   else
+   {
+      outColor = vec4(fragcolor, 1.0);
+   }
 }
