@@ -83,17 +83,20 @@ public:
     } descriptorSetLayouts;
 
     // G-Buffer framebuffer attachments
-    struct FrameBufferAttachment {
+    struct FrameBufferImage {
         VkImage image = VK_NULL_HANDLE;
         VkDeviceMemory mem = VK_NULL_HANDLE;
         VkImageView view = VK_NULL_HANDLE;
         VkFormat format;
     };
     struct Attachments {
-        FrameBufferAttachment position, normal, albedo;
+        FrameBufferImage position, normal, albedo;
         int32_t width;
         int32_t height;
     } attachments;
+
+    // Test Textures
+    FrameBufferImage testTextures[2];
 
     VulkanExample();
 
@@ -106,7 +109,7 @@ public:
     void prepare();
     void setupRenderPass(); // Note : Called by VulkanExampleBase::prepare()
     void createGBufferAttachments(); // Note : Called by setupRenderPass()
-    void createAttachment(VkFormat format, VkImageUsageFlags usage, FrameBufferAttachment* attachment); // Note : Called by setupRenderPass()
+    void createAttachment(VkFormat format, VkImageUsageFlags usage, FrameBufferImage* attachment); // Note : Called by setupRenderPass()
     void setupFrameBuffer(); // Note : Called by VulkanExampleBase::prepare()
     void loadAssets();
     void initLights();
@@ -118,6 +121,7 @@ public:
     void setupDescriptorPool();
     void setupDescriptorSet();
     void prepareCompositionPass();
+    void allocateTestImages();
     void buildCommandBuffers();
     //</Prepare>
 
@@ -129,7 +133,7 @@ public:
 
     virtual void viewChanged();
 
-    void clearAttachment(FrameBufferAttachment* attachment);
+    void clearFrameBufferImage(FrameBufferImage* attachment);
 };
 
 //VULKAN_EXAMPLE_MAIN()

@@ -79,6 +79,7 @@ inline void VulkanExample::prepare()
     preparePipelines();
     setupDescriptorPool();
     setupDescriptorSet();
+    allocateTestImages();
     prepareCompositionPass();
     buildCommandBuffers();
     prepared = true;
@@ -249,10 +250,10 @@ inline void VulkanExample::createGBufferAttachments()
     createAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &attachments.albedo);			// Albedo (color)
 }
 // Create a frame buffer attachment
-inline void VulkanExample::createAttachment(VkFormat format, VkImageUsageFlags usage, FrameBufferAttachment* attachment)
+inline void VulkanExample::createAttachment(VkFormat format, VkImageUsageFlags usage, FrameBufferImage* attachment)
 {
     if (attachment->image != VK_NULL_HANDLE) {
-        clearAttachment(attachment);
+        clearFrameBufferImage(attachment);
     }
 
     VkImageAspectFlags aspectMask = 0;
@@ -726,6 +727,48 @@ inline void VulkanExample::prepareCompositionPass()
     VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCI, nullptr, &pipelines.transparent));
 }
 
+inline void VulkanExample::allocateTestImages()
+{
+    VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    VkImageLayout imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    
+
+    VkImageCreateInfo image = vks::initializers::imageCreateInfo();
+    image.imageType = VK_IMAGE_TYPE_2D;
+    image.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    image.extent.width = attachments.width;
+    image.extent.height = attachments.height;
+    image.extent.depth = 1;
+    image.mipLevels = 1;
+    image.arrayLayers = 1;
+    image.samples = VK_SAMPLE_COUNT_1_BIT;
+    image.tiling = VK_IMAGE_TILING_OPTIMAL;
+    image.usage = VK_IMAGE_USAGE_SAMPLED_BIT; 
+    image.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    VkMemoryAllocateInfo memAlloc = vks::initializers::memoryAllocateInfo();
+    VkMemoryRequirements memReqs;
+
+    VK_CHECK_RESULT(vkCreateImage(device, &image, nullptr, &testTextures[0].image));
+    vkGetImageMemoryRequirements(device, testTextures[0].image, &memReqs);
+    memAlloc.allocationSize = memReqs.size;
+    memAlloc.memoryTypeIndex = vulkanDevice->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    VK_CHECK_RESULT(vkAllocateMemory(device, &memAlloc, nullptr, &testTextures[0].mem));
+    VK_CHECK_RESULT(vkBindImageMemory(device, testTextures[0].image, testTextures[0].mem, 0));
+
+    VkImageViewCreateInfo imageView = vks::initializers::imageViewCreateInfo();
+    imageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    imageView.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    imageView.subresourceRange = {};
+    imageView.subresourceRange.aspectMask = aspectMask;
+    imageView.subresourceRange.baseMipLevel = 0;
+    imageView.subresourceRange.levelCount = 1;
+    imageView.subresourceRange.baseArrayLayer = 0;
+    imageView.subresourceRange.layerCount = 1;
+    imageView.image = testTextures[0].image;
+    VK_CHECK_RESULT(vkCreateImageView(device, &imageView, nullptr, &testTextures[0].view));
+}
 
 inline void VulkanExample::buildCommandBuffers()
 {
@@ -874,16 +917,19 @@ inline VulkanExample::~VulkanExample()
     vkDestroyDescriptorSetLayout(device, descriptorSetLayouts.composition, nullptr);
     vkDestroyDescriptorSetLayout(device, descriptorSetLayouts.transparent, nullptr);
 
-    clearAttachment(&attachments.position);
-    clearAttachment(&attachments.normal);
-    clearAttachment(&attachments.albedo);
+    clearFrameBufferImage(&attachments.position);
+    clearFrameBufferImage(&attachments.normal);
+    clearFrameBufferImage(&attachments.albedo);
 
+    clearFrameBufferImage(&testTextures[0]);
+
+    textures.inputTest.destroy();
     textures.glass.destroy();
     uniformBuffers.GBuffer.destroy();
     uniformBuffers.lights.destroy();
 }
 
-inline void VulkanExample::clearAttachment(FrameBufferAttachment* attachment)
+inline void VulkanExample::clearFrameBufferImage(FrameBufferImage* attachment)
 {
     vkDestroyImageView(device, attachment->view, nullptr);
     vkDestroyImage(device, attachment->image, nullptr);
