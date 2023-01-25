@@ -107,21 +107,30 @@ public:
 
     //<Prepare>
     void prepare();
-    void setupRenderPass(); // Note : Called by VulkanExampleBase::prepare()
+    void setupRenderPass();          // Note : Called by VulkanExampleBase::prepare()
     void createGBufferAttachments(); // Note : Called by setupRenderPass()
-    void createAttachment(VkFormat format, VkImageUsageFlags usage, FrameBufferImage* attachment); // Note : Called by setupRenderPass()
-    void setupFrameBuffer(); // Note : Called by VulkanExampleBase::prepare()
+    void createAttachment(           // Note : Called by setupRenderPass()
+        VkFormat format,
+        VkImageUsageFlags usage,
+        FrameBufferImage& attachment); 
+    void createFrameBufferImage(     // Note : Called by createAttachment()
+        VkFormat format,
+        VkImageUsageFlags usage,
+        VkImageAspectFlags aspectMask,
+        VkImageLayout imageLayout,
+        FrameBufferImage& frameBuffer); 
+    void setupFrameBuffer();         // Note : Called by VulkanExampleBase::prepare()
     void loadAssets();
     void initLights();
     void prepareUniformBuffers(); 
     void updateUniformBufferDeferredMatrices(); // Note : Called by prepareUniformBuffers()
-    void updateUniformBufferDeferredLights(); // Note : Called by prepareUniformBuffers()
+    void updateUniformBufferDeferredLights();   // Note : Called by prepareUniformBuffers()
     void setupDescriptorSetLayout();
     void preparePipelines();
     void setupDescriptorPool();
     void setupDescriptorSet();
     void prepareCompositionPass();
-    void allocateTestImages();
+    void createTestImages();
     void buildCommandBuffers();
     //</Prepare>
 
@@ -133,7 +142,7 @@ public:
 
     virtual void viewChanged();
 
-    void clearFrameBufferImage(FrameBufferImage* attachment);
+    void clearFrameBufferImage(FrameBufferImage& attachment);
 };
 
 //VULKAN_EXAMPLE_MAIN()

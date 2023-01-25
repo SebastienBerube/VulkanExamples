@@ -79,7 +79,7 @@ inline void VulkanExample::prepare()
     preparePipelines();
     setupDescriptorPool();
     setupDescriptorSet();
-    allocateTestImages();
+    createTestImages();
     prepareCompositionPass();
     buildCommandBuffers();
     prepared = true;
@@ -245,21 +245,15 @@ inline void VulkanExample::setupRenderPass()
 // Create color attachments for the G-Buffer components
 inline void VulkanExample::createGBufferAttachments()
 {
-    createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &attachments.position);	// (World space) Positions
-    createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &attachments.normal);		// (World space) Normals
-    createAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &attachments.albedo);			// Albedo (color)
+    createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, attachments.position);	// (World space) Positions
+    createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, attachments.normal);		// (World space) Normals
+    createAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, attachments.albedo);			// Albedo (color)
 }
 // Create a frame buffer attachment
-inline void VulkanExample::createAttachment(VkFormat format, VkImageUsageFlags usage, FrameBufferImage* attachment)
+inline void VulkanExample::createAttachment(VkFormat format, VkImageUsageFlags usage, FrameBufferImage& attachment)
 {
-    if (attachment->image != VK_NULL_HANDLE) {
-        clearFrameBufferImage(attachment);
-    }
-
     VkImageAspectFlags aspectMask = 0;
     VkImageLayout imageLayout;
-
-    attachment->format = format;
 
     if (usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
     {
@@ -273,6 +267,23 @@ inline void VulkanExample::createAttachment(VkFormat format, VkImageUsageFlags u
     }
 
     assert(aspectMask > 0);
+
+    createFrameBufferImage(format, usage, aspectMask, imageLayout, attachment);
+}
+
+// Create a FrameBufferImage (image, view, mem, format)
+inline void VulkanExample::createFrameBufferImage(  VkFormat format,
+                                                    VkImageUsageFlags usage,
+                                                    VkImageAspectFlags aspectMask,
+                                                    VkImageLayout imageLayout,
+                                                    FrameBufferImage& frameBuffer)
+{
+    if (frameBuffer.image != VK_NULL_HANDLE) {
+        clearFrameBufferImage(frameBuffer);
+    }
+
+    assert(aspectMask > 0);
+    frameBuffer.format = format;
 
     VkImageCreateInfo image = vks::initializers::imageCreateInfo();
     image.imageType = VK_IMAGE_TYPE_2D;
@@ -291,12 +302,12 @@ inline void VulkanExample::createAttachment(VkFormat format, VkImageUsageFlags u
     VkMemoryAllocateInfo memAlloc = vks::initializers::memoryAllocateInfo();
     VkMemoryRequirements memReqs;
 
-    VK_CHECK_RESULT(vkCreateImage(device, &image, nullptr, &attachment->image));
-    vkGetImageMemoryRequirements(device, attachment->image, &memReqs);
+    VK_CHECK_RESULT(vkCreateImage(device, &image, nullptr, &frameBuffer.image));
+    vkGetImageMemoryRequirements(device, frameBuffer.image, &memReqs);
     memAlloc.allocationSize = memReqs.size;
     memAlloc.memoryTypeIndex = vulkanDevice->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    VK_CHECK_RESULT(vkAllocateMemory(device, &memAlloc, nullptr, &attachment->mem));
-    VK_CHECK_RESULT(vkBindImageMemory(device, attachment->image, attachment->mem, 0));
+    VK_CHECK_RESULT(vkAllocateMemory(device, &memAlloc, nullptr, &frameBuffer.mem));
+    VK_CHECK_RESULT(vkBindImageMemory(device, frameBuffer.image, frameBuffer.mem, 0));
 
     VkImageViewCreateInfo imageView = vks::initializers::imageViewCreateInfo();
     imageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -307,8 +318,8 @@ inline void VulkanExample::createAttachment(VkFormat format, VkImageUsageFlags u
     imageView.subresourceRange.levelCount = 1;
     imageView.subresourceRange.baseArrayLayer = 0;
     imageView.subresourceRange.layerCount = 1;
-    imageView.image = attachment->image;
-    VK_CHECK_RESULT(vkCreateImageView(device, &imageView, nullptr, &attachment->view));
+    imageView.image = frameBuffer.image;
+    VK_CHECK_RESULT(vkCreateImageView(device, &imageView, nullptr, &frameBuffer.view));
 }
 
 // Override framebuffer setup from base class, will automatically be called upon setup and if a window is resized
@@ -439,7 +450,6 @@ inline void VulkanExample::updateUniformBufferDeferredLights()
     memcpy(uniformBuffers.lights.mapped, &uboLights, sizeof(uboLights));
     uniformBuffers.lights.unmap();
 }
-
 
 
 inline void VulkanExample::setupDescriptorSetLayout()
@@ -727,47 +737,21 @@ inline void VulkanExample::prepareCompositionPass()
     VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCI, nullptr, &pipelines.transparent));
 }
 
-inline void VulkanExample::allocateTestImages()
+inline void VulkanExample::createTestImages()
 {
-    VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    VkImageLayout imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    
+    createFrameBufferImage(
+        VK_FORMAT_R16G16B16A16_SFLOAT,
+        VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        testTextures[0]);
 
-    VkImageCreateInfo image = vks::initializers::imageCreateInfo();
-    image.imageType = VK_IMAGE_TYPE_2D;
-    image.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-    image.extent.width = attachments.width;
-    image.extent.height = attachments.height;
-    image.extent.depth = 1;
-    image.mipLevels = 1;
-    image.arrayLayers = 1;
-    image.samples = VK_SAMPLE_COUNT_1_BIT;
-    image.tiling = VK_IMAGE_TILING_OPTIMAL;
-    image.usage = VK_IMAGE_USAGE_SAMPLED_BIT; 
-    image.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-    VkMemoryAllocateInfo memAlloc = vks::initializers::memoryAllocateInfo();
-    VkMemoryRequirements memReqs;
-
-    VK_CHECK_RESULT(vkCreateImage(device, &image, nullptr, &testTextures[0].image));
-    vkGetImageMemoryRequirements(device, testTextures[0].image, &memReqs);
-    memAlloc.allocationSize = memReqs.size;
-    memAlloc.memoryTypeIndex = vulkanDevice->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    VK_CHECK_RESULT(vkAllocateMemory(device, &memAlloc, nullptr, &testTextures[0].mem));
-    VK_CHECK_RESULT(vkBindImageMemory(device, testTextures[0].image, testTextures[0].mem, 0));
-
-    VkImageViewCreateInfo imageView = vks::initializers::imageViewCreateInfo();
-    imageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    imageView.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-    imageView.subresourceRange = {};
-    imageView.subresourceRange.aspectMask = aspectMask;
-    imageView.subresourceRange.baseMipLevel = 0;
-    imageView.subresourceRange.levelCount = 1;
-    imageView.subresourceRange.baseArrayLayer = 0;
-    imageView.subresourceRange.layerCount = 1;
-    imageView.image = testTextures[0].image;
-    VK_CHECK_RESULT(vkCreateImageView(device, &imageView, nullptr, &testTextures[0].view));
+    createFrameBufferImage(
+        VK_FORMAT_R16G16B16A16_SFLOAT,
+        VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        testTextures[1]);
 }
 
 inline void VulkanExample::buildCommandBuffers()
@@ -917,11 +901,12 @@ inline VulkanExample::~VulkanExample()
     vkDestroyDescriptorSetLayout(device, descriptorSetLayouts.composition, nullptr);
     vkDestroyDescriptorSetLayout(device, descriptorSetLayouts.transparent, nullptr);
 
-    clearFrameBufferImage(&attachments.position);
-    clearFrameBufferImage(&attachments.normal);
-    clearFrameBufferImage(&attachments.albedo);
+    clearFrameBufferImage(attachments.position);
+    clearFrameBufferImage(attachments.normal);
+    clearFrameBufferImage(attachments.albedo);
 
-    clearFrameBufferImage(&testTextures[0]);
+    clearFrameBufferImage(testTextures[0]);
+    clearFrameBufferImage(testTextures[1]);
 
     textures.inputTest.destroy();
     textures.glass.destroy();
@@ -929,9 +914,9 @@ inline VulkanExample::~VulkanExample()
     uniformBuffers.lights.destroy();
 }
 
-inline void VulkanExample::clearFrameBufferImage(FrameBufferImage* attachment)
+inline void VulkanExample::clearFrameBufferImage(FrameBufferImage& frameBuffer)
 {
-    vkDestroyImageView(device, attachment->view, nullptr);
-    vkDestroyImage(device, attachment->image, nullptr);
-    vkFreeMemory(device, attachment->mem, nullptr);
+    vkDestroyImageView(device, frameBuffer.view, nullptr);
+    vkDestroyImage(device, frameBuffer.image, nullptr);
+    vkFreeMemory(device, frameBuffer.mem, nullptr);
 }
