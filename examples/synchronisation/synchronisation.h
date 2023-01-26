@@ -118,7 +118,8 @@ public:
         VkImageUsageFlags usage,
         VkImageAspectFlags aspectMask,
         VkImageLayout imageLayout,
-        FrameBufferImage& frameBuffer); 
+        FrameBufferImage& frameBuffer,
+        VkExtent2D imageSize);
     void setupFrameBuffer();         // Note : Called by VulkanExampleBase::prepare()
     void loadAssets();
     void initLights();

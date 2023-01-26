@@ -268,7 +268,7 @@ inline void VulkanExample::createAttachment(VkFormat format, VkImageUsageFlags u
 
     assert(aspectMask > 0);
 
-    createFrameBufferImage(format, usage, aspectMask, imageLayout, attachment);
+    createFrameBufferImage(format, usage, aspectMask, imageLayout, attachment, VkExtent2D{ (uint32_t)attachments.width, (uint32_t)attachments.height } );
 }
 
 // Create a FrameBufferImage (image, view, mem, format)
@@ -276,7 +276,8 @@ inline void VulkanExample::createFrameBufferImage(  VkFormat format,
                                                     VkImageUsageFlags usage,
                                                     VkImageAspectFlags aspectMask,
                                                     VkImageLayout imageLayout,
-                                                    FrameBufferImage& frameBuffer)
+                                                    FrameBufferImage& frameBuffer,
+                                                    VkExtent2D imageSize)
 {
     if (frameBuffer.image != VK_NULL_HANDLE) {
         clearFrameBufferImage(frameBuffer);
@@ -288,8 +289,8 @@ inline void VulkanExample::createFrameBufferImage(  VkFormat format,
     VkImageCreateInfo image = vks::initializers::imageCreateInfo();
     image.imageType = VK_IMAGE_TYPE_2D;
     image.format = format;
-    image.extent.width = attachments.width;
-    image.extent.height = attachments.height;
+    image.extent.width = imageSize.width;
+    image.extent.height = imageSize.height;
     image.extent.depth = 1;
     image.mipLevels = 1;
     image.arrayLayers = 1;
@@ -379,7 +380,7 @@ inline void VulkanExample::loadAssets()
     models.scene.loadFromFile(getAssetPath() + "models/samplebuilding.gltf", vulkanDevice, queue, glTFLoadingFlags);
     models.transparent.loadFromFile(getAssetPath() + "models/samplebuilding_glass.gltf", vulkanDevice, queue, glTFLoadingFlags);
     textures.glass.loadFromFile(getAssetPath() + "textures/colored_glass_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue);
-    textures.inputTest.loadFromFile(getAssetPath() + "textures/stonefloor02_color_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue);
+    textures.inputTest.loadFromFile(getAssetPath() + "textures/stonefloor02_color_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_LAYOUT_GENERAL);
 }
 
 inline void VulkanExample::initLights()
@@ -740,18 +741,20 @@ inline void VulkanExample::prepareCompositionPass()
 inline void VulkanExample::createTestImages()
 {
     createFrameBufferImage(
-        VK_FORMAT_R16G16B16A16_SFLOAT,
-        VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_FORMAT_R8G8B8A8_UNORM,
+        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         VK_IMAGE_ASPECT_COLOR_BIT,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        testTextures[0]);
+        VK_IMAGE_LAYOUT_GENERAL,
+        testTextures[0],
+        VkExtent2D{ textures.inputTest.width, textures.inputTest.height } );
 
     createFrameBufferImage(
-        VK_FORMAT_R16G16B16A16_SFLOAT,
-        VK_IMAGE_USAGE_SAMPLED_BIT,
+        VK_FORMAT_R8G8B8A8_UNORM,
+        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         VK_IMAGE_ASPECT_COLOR_BIT,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        testTextures[1]);
+        VK_IMAGE_LAYOUT_GENERAL,
+        testTextures[1],
+        VkExtent2D{ textures.inputTest.width, textures.inputTest.height });
 }
 
 inline void VulkanExample::buildCommandBuffers()
@@ -834,6 +837,22 @@ inline void VulkanExample::buildCommandBuffers()
         drawUI(drawCmdBuffers[i]);
 
         vkCmdEndRenderPass(drawCmdBuffers[i]);
+
+        VkImageCopy copyRegion{};
+        copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+        copyRegion.srcOffset = { 0, 0, 0 };
+        copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+        copyRegion.dstOffset = { 0, 0, 0 };
+        copyRegion.extent = { textures.inputTest.width, textures.inputTest.height, 1 };
+
+        vkCmdCopyImage(drawCmdBuffers[i],
+            textures.inputTest.image,
+            VK_IMAGE_LAYOUT_GENERAL,
+            testTextures[0].image,
+            VK_IMAGE_LAYOUT_GENERAL,
+            1,
+            &copyRegion);
+
 
         VK_CHECK_RESULT(vkEndCommandBuffer(drawCmdBuffers[i]));
     }
