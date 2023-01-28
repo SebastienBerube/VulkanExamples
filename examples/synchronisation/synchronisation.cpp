@@ -19,7 +19,7 @@
 #include "vulkanexamplebase.h"
 #include "VulkanglTFModel.h"
 #include "synchronisation.h"
-
+#include "VulkanTools.h"
 
 //VULKAN_EXAMPLE_MAIN()
 //<Windows VULKAN_EXAMPLE_MAIN>
@@ -744,7 +744,7 @@ inline void VulkanExample::createTestImages()
         VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         VK_IMAGE_ASPECT_COLOR_BIT,
-        VK_IMAGE_LAYOUT_GENERAL,
+        VK_IMAGE_LAYOUT_UNDEFINED,
         testTextures[0],
         VkExtent2D{ textures.inputTest.width, textures.inputTest.height } );
 
@@ -752,9 +752,17 @@ inline void VulkanExample::createTestImages()
         VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         VK_IMAGE_ASPECT_COLOR_BIT,
-        VK_IMAGE_LAYOUT_GENERAL,
+        VK_IMAGE_LAYOUT_UNDEFINED,
         testTextures[1],
         VkExtent2D{ textures.inputTest.width, textures.inputTest.height });
+
+
+    VkCommandBuffer cmdBuffer = vulkanDevice->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+
+    vks::tools::setImageLayout(cmdBuffer, testTextures[0].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+    vks::tools::setImageLayout(cmdBuffer, testTextures[1].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+    vulkanDevice->flushCommandBuffer(cmdBuffer, queue);
 }
 
 inline void VulkanExample::buildCommandBuffers()
