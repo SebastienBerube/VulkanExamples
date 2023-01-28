@@ -46,6 +46,81 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 }
 //</Windows VULKAN_EXAMPLE_MAIN>
 
+
+void VulkanExample::RenderTexture::create(
+    vks::VulkanDevice* device,
+    VkFormat format,
+    VkImageUsageFlags usage, 
+    VkImageAspectFlags aspectMask, 
+    VkImageLayout imageLayout, 
+    VkExtent2D imageSize)
+{
+    this->device = device;
+
+    if (image != VK_NULL_HANDLE) {
+        destroy();
+    }
+
+    assert(aspectMask > 0);
+    format = format;
+
+    VkImageCreateInfo imageInfo = vks::initializers::imageCreateInfo();
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.format = format;
+    imageInfo.extent.width = imageSize.width;
+    imageInfo.extent.height = imageSize.height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    // VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT flag is required for input attachments
+    imageInfo.usage = usage | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    VkMemoryAllocateInfo memAlloc = vks::initializers::memoryAllocateInfo();
+    VkMemoryRequirements memReqs;
+
+    VK_CHECK_RESULT(vkCreateImage(device->logicalDevice, &imageInfo, nullptr, &image));
+    vkGetImageMemoryRequirements(device->logicalDevice, image, &memReqs);
+    memAlloc.allocationSize = memReqs.size;
+    memAlloc.memoryTypeIndex = device->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    VK_CHECK_RESULT(vkAllocateMemory(device->logicalDevice, &memAlloc, nullptr, &deviceMemory));
+    VK_CHECK_RESULT(vkBindImageMemory(device->logicalDevice, image, deviceMemory, 0));
+
+    VkImageViewCreateInfo imageView = vks::initializers::imageViewCreateInfo();
+    imageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    imageView.format = format;
+    imageView.subresourceRange = {};
+    imageView.subresourceRange.aspectMask = aspectMask;
+    imageView.subresourceRange.baseMipLevel = 0;
+    imageView.subresourceRange.levelCount = 1;
+    imageView.subresourceRange.baseArrayLayer = 0;
+    imageView.subresourceRange.layerCount = 1;
+    imageView.image = image;
+    VK_CHECK_RESULT(vkCreateImageView(device->logicalDevice, &imageView, nullptr, &view));
+    
+    // Create a default sampler
+    VkSamplerCreateInfo samplerCreateInfo = {};
+    samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+    samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+    samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerCreateInfo.mipLodBias = 0.0f;
+    samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
+    samplerCreateInfo.minLod = 0.0f;
+    // Max level-of-detail should match mip level count
+    samplerCreateInfo.maxLod = (float)mipLevels;
+    // Only enable anisotropic filtering if enabled on the device
+    samplerCreateInfo.maxAnisotropy = device->enabledFeatures.samplerAnisotropy ? device->properties.limits.maxSamplerAnisotropy : 1.0f;
+    samplerCreateInfo.anisotropyEnable = device->enabledFeatures.samplerAnisotropy;
+    samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    VK_CHECK_RESULT(vkCreateSampler(device->logicalDevice, &samplerCreateInfo, nullptr, &sampler));
+}
+
 inline VulkanExample::VulkanExample() : VulkanExampleBase(ENABLE_VALIDATION)
 {
     title = "Synchronisation";
@@ -79,7 +154,7 @@ inline void VulkanExample::prepare()
     preparePipelines();
     setupDescriptorPool();
     setupDescriptorSet();
-    createTestImages();
+    createRenderTextures();
     prepareCompositionPass();
     buildCommandBuffers();
     prepared = true;
@@ -250,7 +325,7 @@ inline void VulkanExample::createGBufferAttachments()
     createAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, attachments.albedo);			// Albedo (color)
 }
 // Create a frame buffer attachment
-inline void VulkanExample::createAttachment(VkFormat format, VkImageUsageFlags usage, FrameBufferImage& attachment)
+inline void VulkanExample::createAttachment(VkFormat format, VkImageUsageFlags usage, RenderTargetImage& attachment)
 {
     VkImageAspectFlags aspectMask = 0;
     VkImageLayout imageLayout;
@@ -268,19 +343,19 @@ inline void VulkanExample::createAttachment(VkFormat format, VkImageUsageFlags u
 
     assert(aspectMask > 0);
 
-    createFrameBufferImage(format, usage, aspectMask, imageLayout, attachment, VkExtent2D{ (uint32_t)attachments.width, (uint32_t)attachments.height } );
+    createImage(format, usage, aspectMask, imageLayout, attachment, VkExtent2D{ (uint32_t)attachments.width, (uint32_t)attachments.height } );
 }
 
 // Create a FrameBufferImage (image, view, mem, format)
-inline void VulkanExample::createFrameBufferImage(  VkFormat format,
-                                                    VkImageUsageFlags usage,
-                                                    VkImageAspectFlags aspectMask,
-                                                    VkImageLayout imageLayout,
-                                                    FrameBufferImage& frameBuffer,
-                                                    VkExtent2D imageSize)
+inline void VulkanExample::createImage( VkFormat format,
+                                        VkImageUsageFlags usage,
+                                        VkImageAspectFlags aspectMask,
+                                        VkImageLayout imageLayout,
+                                        RenderTargetImage& frameBuffer,
+                                        VkExtent2D imageSize)
 {
     if (frameBuffer.image != VK_NULL_HANDLE) {
-        clearFrameBufferImage(frameBuffer);
+        clearRenderTargetImage(frameBuffer);
     }
 
     assert(aspectMask > 0);
@@ -624,6 +699,8 @@ inline void VulkanExample::prepareCompositionPass()
     VkDescriptorImageInfo texDescriptorNormal = vks::initializers::descriptorImageInfo(VK_NULL_HANDLE, attachments.normal.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     VkDescriptorImageInfo texDescriptorAlbedo = vks::initializers::descriptorImageInfo(VK_NULL_HANDLE, attachments.albedo.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
+    //VkDescriptorImageInfo testTextureDescriptor = vks::initializers::descriptorImageInfo(VK_NULL_HANDLE, testTextures[0].view, VK_IMAGE_LAYOUT_GENERAL);
+
     std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
         // Binding 0: Position texture target
         vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 0, &texDescriptorPosition),
@@ -635,6 +712,7 @@ inline void VulkanExample::prepareCompositionPass()
         vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3, &uniformBuffers.lights.descriptor),
         // Binding 5: Test Texture
         vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &textures.inputTest.descriptor)
+        //vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &testTextureDescriptor)
     };
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, NULL);
@@ -738,22 +816,22 @@ inline void VulkanExample::prepareCompositionPass()
     VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCI, nullptr, &pipelines.transparent));
 }
 
-inline void VulkanExample::createTestImages()
+inline void VulkanExample::createRenderTextures()
 {
-    createFrameBufferImage(
+    testTextures[0].create(
+        vulkanDevice,
         VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         VK_IMAGE_ASPECT_COLOR_BIT,
         VK_IMAGE_LAYOUT_UNDEFINED,
-        testTextures[0],
         VkExtent2D{ textures.inputTest.width, textures.inputTest.height } );
 
-    createFrameBufferImage(
+    testTextures[1].create(
+        vulkanDevice,
         VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         VK_IMAGE_ASPECT_COLOR_BIT,
         VK_IMAGE_LAYOUT_UNDEFINED,
-        testTextures[1],
         VkExtent2D{ textures.inputTest.width, textures.inputTest.height });
 
 
@@ -853,13 +931,8 @@ inline void VulkanExample::buildCommandBuffers()
         copyRegion.dstOffset = { 0, 0, 0 };
         copyRegion.extent = { textures.inputTest.width, textures.inputTest.height, 1 };
 
-        vkCmdCopyImage(drawCmdBuffers[i],
-            textures.inputTest.image,
-            VK_IMAGE_LAYOUT_GENERAL,
-            testTextures[0].image,
-            VK_IMAGE_LAYOUT_GENERAL,
-            1,
-            &copyRegion);
+        vkCmdCopyImage(drawCmdBuffers[i], textures.inputTest.image, VK_IMAGE_LAYOUT_GENERAL, testTextures[1].image, VK_IMAGE_LAYOUT_GENERAL, 1, &copyRegion);
+        //vkCmdCopyImage(drawCmdBuffers[i], textures.inputTest.image, VK_IMAGE_LAYOUT_GENERAL, testTextures[0].image, VK_IMAGE_LAYOUT_GENERAL, 1, &copyRegion);
 
 
         VK_CHECK_RESULT(vkEndCommandBuffer(drawCmdBuffers[i]));
@@ -928,12 +1001,12 @@ inline VulkanExample::~VulkanExample()
     vkDestroyDescriptorSetLayout(device, descriptorSetLayouts.composition, nullptr);
     vkDestroyDescriptorSetLayout(device, descriptorSetLayouts.transparent, nullptr);
 
-    clearFrameBufferImage(attachments.position);
-    clearFrameBufferImage(attachments.normal);
-    clearFrameBufferImage(attachments.albedo);
+    clearRenderTargetImage(attachments.position);
+    clearRenderTargetImage(attachments.normal);
+    clearRenderTargetImage(attachments.albedo);
 
-    clearFrameBufferImage(testTextures[0]);
-    clearFrameBufferImage(testTextures[1]);
+    testTextures[0].destroy();
+    testTextures[1].destroy();
 
     textures.inputTest.destroy();
     textures.glass.destroy();
@@ -941,7 +1014,7 @@ inline VulkanExample::~VulkanExample()
     uniformBuffers.lights.destroy();
 }
 
-inline void VulkanExample::clearFrameBufferImage(FrameBufferImage& frameBuffer)
+inline void VulkanExample::clearRenderTargetImage(RenderTargetImage& frameBuffer)
 {
     vkDestroyImageView(device, frameBuffer.view, nullptr);
     vkDestroyImage(device, frameBuffer.image, nullptr);
