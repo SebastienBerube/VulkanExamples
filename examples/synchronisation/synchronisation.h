@@ -84,41 +84,29 @@ public:
         VkDescriptorSetLayout transparent;
     } descriptorSetLayouts;
 
-    //TODO : Rename this class below:
-    struct RenderTargetImage {
-        VkImage image = VK_NULL_HANDLE;
-        VkDeviceMemory mem = VK_NULL_HANDLE;
-        VkImageView view = VK_NULL_HANDLE;
-        VkFormat format;
-    };
-    // G-Buffer framebuffer attachments
-    struct Attachments {
-        RenderTargetImage position, normal, albedo;
-        int32_t width;
-        int32_t height;
-    } attachments;
-
-    
-    class RenderTexture : public vks::Texture{
+    //TODO : Move this to another .h/.cpp file
+    class RenderTexture : public vks::Texture {
+        void zeroMemory();
     public:
-        RenderTexture()
-        {
-            //REFACTOR : better init?
-            image = VK_NULL_HANDLE;
-            sampler = VK_NULL_HANDLE;
-            device = VK_NULL_HANDLE;
-        }
-        
-        //REFACTOR : RAII?
+        VkFormat format;
+        RenderTexture();
         void create(
             vks::VulkanDevice* device,
             VkFormat format,
             VkImageUsageFlags usage,
             VkImageAspectFlags aspectMask,
             VkImageLayout imageLayout,
-            VkExtent2D imageSize);
+            VkExtent2D imageSize,
+            bool createSampler);
+        void destroy();
+    };
 
-    } testTextures[2];
+    // G-Buffer framebuffer attachments
+    struct Attachments {
+        RenderTexture position, normal, albedo;
+    } attachments;
+    
+    RenderTexture testTextures[2];
 
     VulkanExample();
 
@@ -134,14 +122,7 @@ public:
     void createAttachment(           // Note : Called by setupRenderPass()
         VkFormat format,
         VkImageUsageFlags usage,
-        RenderTargetImage& attachment);
-    void createImage(     // Note : Called by createAttachment()
-        VkFormat format,
-        VkImageUsageFlags usage,
-        VkImageAspectFlags aspectMask,
-        VkImageLayout imageLayout,
-        RenderTargetImage& frameBuffer,
-        VkExtent2D imageSize);
+        RenderTexture& attachment);
     void setupFrameBuffer();         // Note : Called by VulkanExampleBase::prepare()
     void loadAssets();
     void initLights();
@@ -164,8 +145,6 @@ public:
     virtual void OnUpdateUIOverlay(vks::UIOverlay* overlay);
 
     virtual void viewChanged();
-
-    void clearRenderTargetImage(RenderTargetImage& attachment);
 };
 
 //VULKAN_EXAMPLE_MAIN()
