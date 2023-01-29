@@ -46,8 +46,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 }
 //</Windows VULKAN_EXAMPLE_MAIN>
 
-
-
 //REFACTOR : better init?
 inline void VulkanExample::RenderTexture::zeroMemory() {
     device = VK_NULL_HANDLE;
@@ -66,6 +64,7 @@ inline VulkanExample::RenderTexture::RenderTexture()
 
 void VulkanExample::RenderTexture::create(
     vks::VulkanDevice* device,
+    VkQueue layoutChangeQueue,
     VkFormat format,
     VkImageUsageFlags usage, 
     VkImageAspectFlags aspectMask, 
@@ -73,11 +72,11 @@ void VulkanExample::RenderTexture::create(
     VkExtent2D imageSize,
     bool createSampler)
 {
-    this->device = device;
-
     if (image != VK_NULL_HANDLE) {
         destroy();
     }
+
+    this->device = device;
 
     assert(aspectMask > 0);
     this->format = format;
@@ -146,6 +145,12 @@ void VulkanExample::RenderTexture::create(
     {
         sampler = VK_NULL_HANDLE;
     }
+
+    VkCommandBuffer cmdBuffer = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+    vks::tools::setImageLayout(cmdBuffer, image, VK_IMAGE_LAYOUT_UNDEFINED, imageLayout, { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+    device->flushCommandBuffer(cmdBuffer, layoutChangeQueue);
+
+    this->descriptor = VkDescriptorImageInfo{ sampler, view, imageLayout };
 }
 
 //REFACTOR : The base destroy() function is not virtual.
@@ -361,45 +366,36 @@ inline void VulkanExample::createGBufferAttachments()
 inline void VulkanExample::createAttachment(VkFormat format, VkImageUsageFlags usage, RenderTexture& attachment)
 {
     VkImageAspectFlags aspectMask = 0;
-    VkImageLayout imageLayout;
 
     if (usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
     {
         aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     }
     if (usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
     {
         aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-        imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     }
 
     assert(aspectMask > 0);
 
-    attachment.create(vulkanDevice, format, usage, aspectMask, imageLayout, VkExtent2D{ width, height }, false);
+    attachment.create(vulkanDevice, queue, format, usage, aspectMask, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VkExtent2D{ width, height }, false);
 }
 
 // Override framebuffer setup from base class, will automatically be called upon setup and if a window is resized
 inline void VulkanExample::setupFrameBuffer()
 {
-    // If the window is resized, all the framebuffers/attachments used in our composition passes need to be recreated
     if (attachments.albedo.width != width || attachments.albedo.height != height) {
         createGBufferAttachments();
-        // Since the framebuffers/attachments are referred in the descriptor sets, these need to be updated too
         // Composition pass
-        std::vector< VkDescriptorImageInfo> descriptorImageInfos = {
-            vks::initializers::descriptorImageInfo(VK_NULL_HANDLE, attachments.position.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-            vks::initializers::descriptorImageInfo(VK_NULL_HANDLE, attachments.normal.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-            vks::initializers::descriptorImageInfo(VK_NULL_HANDLE, attachments.albedo.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+        std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
+            vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 0, &attachments.position.descriptor),
+            vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, &attachments.normal.descriptor),
+            vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 2, &attachments.albedo.descriptor)
         };
-        std::vector<VkWriteDescriptorSet> writeDescriptorSets;
-        for (size_t i = 0; i < descriptorImageInfos.size(); i++) {
-            writeDescriptorSets.push_back(vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, i, &descriptorImageInfos[i]));
-        }
         vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
         // Forward pass
         writeDescriptorSets = {
-            vks::initializers::writeDescriptorSet(descriptorSets.transparent, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, &descriptorImageInfos[0]),
+            vks::initializers::writeDescriptorSet(descriptorSets.transparent, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, &attachments.position.descriptor),
         };
         vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
     }
@@ -673,25 +669,18 @@ inline void VulkanExample::prepareCompositionPass()
 
     VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &descriptorSets.composition));
 
-    // Image descriptors for the offscreen color attachments
-    VkDescriptorImageInfo texDescriptorPosition = vks::initializers::descriptorImageInfo(VK_NULL_HANDLE, attachments.position.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    VkDescriptorImageInfo texDescriptorNormal = vks::initializers::descriptorImageInfo(VK_NULL_HANDLE, attachments.normal.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    VkDescriptorImageInfo texDescriptorAlbedo = vks::initializers::descriptorImageInfo(VK_NULL_HANDLE, attachments.albedo.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-    //VkDescriptorImageInfo testTextureDescriptor = vks::initializers::descriptorImageInfo(VK_NULL_HANDLE, testTextures[0].view, VK_IMAGE_LAYOUT_GENERAL);
-
     std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
         // Binding 0: Position texture target
-        vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 0, &texDescriptorPosition),
+        vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 0, &attachments.position.descriptor),
         // Binding 1: Normals texture target
-        vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, &texDescriptorNormal),
+        vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, &attachments.normal.descriptor),
         // Binding 2: Albedo texture target
-        vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 2, &texDescriptorAlbedo),
+        vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 2, &attachments.albedo.descriptor),
         // Binding 4: Fragment shader lights
         vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3, &uniformBuffers.lights.descriptor),
         // Binding 5: Test Texture
-        vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &textures.inputTest.descriptor)
-        //vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &testTextureDescriptor)
+        //vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &textures.inputTest.descriptor)
+        vks::initializers::writeDescriptorSet(descriptorSets.composition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4, &testTextures[0].descriptor)
     };
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, NULL);
@@ -771,7 +760,7 @@ inline void VulkanExample::prepareCompositionPass()
 
     writeDescriptorSets = {
         vks::initializers::writeDescriptorSet(descriptorSets.transparent, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &uniformBuffers.GBuffer.descriptor),
-        vks::initializers::writeDescriptorSet(descriptorSets.transparent, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, &texDescriptorPosition),
+        vks::initializers::writeDescriptorSet(descriptorSets.transparent, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1, &attachments.position.descriptor),
         vks::initializers::writeDescriptorSet(descriptorSets.transparent, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2, &textures.glass.descriptor),
     };
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, NULL);
@@ -799,28 +788,23 @@ inline void VulkanExample::createRenderTextures()
 {
     testTextures[0].create(
         vulkanDevice,
+        queue,
         VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         VK_IMAGE_ASPECT_COLOR_BIT,
-        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_GENERAL,
         VkExtent2D{ textures.inputTest.width, textures.inputTest.height },
         true);
 
     testTextures[1].create(
         vulkanDevice,
+        queue,
         VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         VK_IMAGE_ASPECT_COLOR_BIT,
-        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_GENERAL,
         VkExtent2D{ textures.inputTest.width, textures.inputTest.height },
         true);
-
-    VkCommandBuffer cmdBuffer = vulkanDevice->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
-
-    vks::tools::setImageLayout(cmdBuffer, testTextures[0].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-    vks::tools::setImageLayout(cmdBuffer, testTextures[1].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-
-    vulkanDevice->flushCommandBuffer(cmdBuffer, queue);
 }
 
 inline void VulkanExample::buildCommandBuffers()

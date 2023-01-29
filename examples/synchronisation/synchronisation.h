@@ -92,6 +92,7 @@ public:
         RenderTexture();
         void create(
             vks::VulkanDevice* device,
+            VkQueue layoutChangeQueue,
             VkFormat format,
             VkImageUsageFlags usage,
             VkImageAspectFlags aspectMask,
