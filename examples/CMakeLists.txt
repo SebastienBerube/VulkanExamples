@@ -86,6 +86,7 @@ set(EXAMPLES
 	computeparticles
 	computeraytracing
 	computeshader
+	computeshadernetwork
 	conditionalrender
 	conservativeraster
 	debugmarker
