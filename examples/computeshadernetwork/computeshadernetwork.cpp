@@ -55,6 +55,7 @@ public:
 	vks::Buffer vertexBuffer;
 	vks::Buffer indexBuffer;
 	uint32_t indexCount;
+    bool computeSemaphore = true;
 
 	vks::Buffer uniformBufferVS;
 
@@ -273,6 +274,18 @@ public:
 			drawUI(drawCmdBuffers[i]);
 
 			vkCmdEndRenderPass(drawCmdBuffers[i]);
+
+            {
+                VkClearColorValue clearColor0 = { 1.0f, 0.0f, 0.0f, 1.0f };
+
+                VkImageSubresourceRange clearRange;
+                clearRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                clearRange.baseMipLevel = 0;
+                clearRange.levelCount = VK_REMAINING_MIP_LEVELS;
+                clearRange.baseArrayLayer = 0;
+                clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+                vkCmdClearColorImage(drawCmdBuffers[i], textureComputeTarget.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
+            }
 
 			VK_CHECK_RESULT(vkEndCommandBuffer(drawCmdBuffers[i]));
 		}
@@ -610,14 +623,15 @@ public:
 		VulkanExampleBase::prepareFrame();
 
 		VkPipelineStageFlags graphicsWaitStageMasks[] = { VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-		VkSemaphore graphicsWaitSemaphores[] = { compute.semaphore, semaphores.presentComplete };
-		VkSemaphore graphicsSignalSemaphores[] = { graphics.semaphore, semaphores.renderComplete };
+        std::vector<VkSemaphore> graphicsWaitSemaphores = { compute.semaphore, semaphores.presentComplete };
+        std::vector<VkSemaphore> graphicsWaitSemaphoresTest = { semaphores.presentComplete };
+        VkSemaphore graphicsSignalSemaphores[] = { graphics.semaphore, semaphores.renderComplete };
 
 		// Submit graphics commands
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &drawCmdBuffers[currentBuffer];
-		submitInfo.waitSemaphoreCount = 2;
-		submitInfo.pWaitSemaphores = graphicsWaitSemaphores;
+		submitInfo.waitSemaphoreCount = computeSemaphore ? graphicsWaitSemaphores.size() : graphicsWaitSemaphoresTest.size();
+		submitInfo.pWaitSemaphores = computeSemaphore ? &graphicsWaitSemaphores[0] : &graphicsWaitSemaphoresTest[0];
 		submitInfo.pWaitDstStageMask = graphicsWaitStageMasks;
 		submitInfo.signalSemaphoreCount = 2;
 		submitInfo.pSignalSemaphores = graphicsSignalSemaphores;
@@ -666,6 +680,7 @@ public:
 			if (overlay->comboBox("Shader", &compute.pipelineIndex, shaderNames)) {
 				buildComputeCommandBuffer();
 			}
+            overlay->checkBox("Semaphore", &computeSemaphore);
 		}
 	}
 };
