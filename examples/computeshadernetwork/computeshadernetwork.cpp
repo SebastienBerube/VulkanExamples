@@ -536,7 +536,7 @@ public:
 			vks::initializers::computePipelineCreateInfo(compute.pipelineLayout, 0);
 
 		// One pipeline for each effect
-		shaderNames = { "emboss", "edgedetect", "sharpen", "threshold" };
+		shaderNames = { "emboss", "edgedetect", "sharpen", "threshold", "blur" };
 		for (auto& shaderName : shaderNames) {
 			std::string fileName = getShadersPath() + "computeshadernetwork/" + shaderName + ".comp.spv";
 			computePipelineCreateInfo.stage = loadShader(fileName, VK_SHADER_STAGE_COMPUTE_BIT);
