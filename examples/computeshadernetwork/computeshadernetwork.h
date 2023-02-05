@@ -39,10 +39,12 @@ public:
     } graphics;
 
     struct ComputePass {
+        std::string shaderName;
         VkDescriptorSetLayout descriptorSetLayout;    // Compute shader binding layout
         VkDescriptorSet descriptorSet;                // Compute shader bindings
         VkPipelineLayout pipelineLayout;            // Layout of the compute pipeline
         vks::Texture2D textureComputeTarget;
+        VkPipeline pipeline;
     };
 
     // Resources for the compute part of the example
@@ -52,8 +54,6 @@ public:
         VkCommandBuffer commandBuffer;                // Command buffer storing the dispatch commands and barriers
         VkSemaphore semaphore;                      // Execution dependency between compute & graphic submission
         std::vector<ComputePass> passes;
-        std::vector<VkPipeline> pipelines;            // Compute pipelines for image filters
-        int32_t pipelineIndex = 0;                    // Current image filtering compute pipeline index
     } compute;
 
     vks::Buffer vertexBuffer;
@@ -116,7 +116,12 @@ public:
         generateQuad();
         setupVertexDescriptions();
         prepareUniformBuffers();
-        prepareTextureTarget(&compute.passes[0].textureComputeTarget, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
+        
+        for(auto& computePass : compute.passes)
+        {
+            prepareTextureTarget(&computePass.textureComputeTarget, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
+        }
+        
         setupGraphicsDescriptorSetLayout();
         preparePipelines();
         setupDescriptorPool();

@@ -48,10 +48,11 @@ VulkanExample::~VulkanExample()
     vkDestroySemaphore(device, graphics.semaphore, nullptr);
 
     // Compute
-    for (auto& pipeline : compute.pipelines)
+    for (auto& computePass : compute.passes)
     {
-        vkDestroyPipeline(device, pipeline, nullptr);
+        vkDestroyPipeline(device, computePass.pipeline, nullptr);
     }
+
     for (auto& computePass : compute.passes)
     {
         vkDestroyPipelineLayout(device, computePass.pipelineLayout, nullptr);
@@ -79,9 +80,12 @@ void VulkanExample::loadAssets()
 
 void VulkanExample::createComputePasses()
 {
-    if (compute.passes.size() < 1)
+    shaderNames = { "edgedetect", "blur" };
+    for (auto shaderName : shaderNames)
     {
-        compute.passes.push_back(ComputePass{});
+        ComputePass computePass;
+        computePass.shaderName = shaderName;
+        compute.passes.push_back(computePass);
     }
 }
 
@@ -357,11 +361,18 @@ void VulkanExample::setupDescriptorPool()
         // Graphics pipelines uniform buffers
         vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2),
         // Graphics pipelines image samplers for displaying compute output image
-        vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2),
-        // Compute pipelines uses a storage image for image reads and writes
-        vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2),
+        vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2)
     };
-    VkDescriptorPoolCreateInfo descriptorPoolInfo = vks::initializers::descriptorPoolCreateInfo(poolSizes, 3);
+
+    for (auto& computePass : compute.passes)
+    {
+        poolSizes.push_back(
+            // Compute pipelines uses a storage image for image reads and writes
+            vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2)
+        );
+    }
+
+    VkDescriptorPoolCreateInfo descriptorPoolInfo = vks::initializers::descriptorPoolCreateInfo(poolSizes, poolSizes.size());
     VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
 }
 
@@ -452,18 +463,30 @@ void VulkanExample::prepareCompute()
         textureColorMap.descriptor,
         compute.passes[0].textureComputeTarget.descriptor);
 
+    setupComputeDescriptorSets(
+        device,
+        descriptorPool,
+        compute.passes[1].descriptorSetLayout,
+        compute.passes[1].pipelineLayout,
+        compute.passes[1].descriptorSet,
+        compute.passes[0].textureComputeTarget.descriptor,
+        compute.passes[1].textureComputeTarget.descriptor);
+        
     // Create compute shader pipelines
-    VkComputePipelineCreateInfo computePipelineCreateInfo =
-        vks::initializers::computePipelineCreateInfo(compute.passes[0].pipelineLayout, 0);
+    // VkComputePipelineCreateInfo computePipelineCreateInfo =
+    //    vks::initializers::computePipelineCreateInfo(compute.passes[0].pipelineLayout, 0);
 
     // One pipeline for each effect
-    shaderNames = { "edgedetect", "blur", "threshold" };
-    for (auto& shaderName : shaderNames) {
-        std::string fileName = getShadersPath() + "computeshadernetwork/" + shaderName + ".comp.spv";
+    for (auto& computePass : compute.passes)
+    {
+        // Create compute shader pipelines
+        VkComputePipelineCreateInfo computePipelineCreateInfo =
+            vks::initializers::computePipelineCreateInfo(computePass.pipelineLayout, 0);
+
+        std::string fileName = getShadersPath() + "computeshadernetwork/" + computePass.shaderName + ".comp.spv";
         computePipelineCreateInfo.stage = loadShader(fileName, VK_SHADER_STAGE_COMPUTE_BIT);
-        VkPipeline pipeline;
-        VK_CHECK_RESULT(vkCreateComputePipelines(device, pipelineCache, 1, &computePipelineCreateInfo, nullptr, &pipeline));
-        compute.pipelines.push_back(pipeline);
+        
+        VK_CHECK_RESULT(vkCreateComputePipelines(device, pipelineCache, 1, &computePipelineCreateInfo, nullptr, &computePass.pipeline));
     }
 
     // Separate command pool as queue family for compute may be different than graphics
@@ -590,11 +613,13 @@ void VulkanExample::buildComputeCommandBuffer()
 
     VK_CHECK_RESULT(vkBeginCommandBuffer(compute.commandBuffer, &cmdBufInfo));
 
-    vkCmdBindPipeline(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelines[compute.pipelineIndex]);
-    vkCmdBindDescriptorSets(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.passes[0].pipelineLayout, 0, 1, &compute.passes[0].descriptorSet, 0, 0);
-
-    vkCmdDispatch(compute.commandBuffer, compute.passes[0].textureComputeTarget.width / 16, compute.passes[0].textureComputeTarget.height / 16, 1);
-
+    for (auto& computePass : compute.passes)
+    {
+        vkCmdBindPipeline(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePass.pipeline);
+        vkCmdBindDescriptorSets(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePass.pipelineLayout, 0, 1, &computePass.descriptorSet, 0, 0);
+        vkCmdDispatch(compute.commandBuffer, computePass.textureComputeTarget.width / 16, computePass.textureComputeTarget.height / 16, 1);
+    }
+    
     vkEndCommandBuffer(compute.commandBuffer);
 }
 
@@ -652,9 +677,9 @@ void VulkanExample::viewChanged()
 void VulkanExample::OnUpdateUIOverlay(vks::UIOverlay *overlay)
 {
     if (overlay->header("Settings")) {
-        if (overlay->comboBox("Shader", &compute.pipelineIndex, shaderNames)) {
+        /*if (overlay->comboBox("Shader", &compute.pipelineIndex, shaderNames)) {
             buildComputeCommandBuffer();
-        }
+        }*/
         overlay->checkBox("Semaphore", &computeSemaphore);
     }
 }
