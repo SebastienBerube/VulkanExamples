@@ -70,11 +70,11 @@ public:
 
     int vertexBufferSize;
 
-    std::vector<std::string> shaderNames;
-
     VulkanExample();
 
     ~VulkanExample();
+
+    vks::Texture2D& lastTextureComputeTarget();
 
     void loadAssets();
 

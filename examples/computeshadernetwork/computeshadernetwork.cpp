@@ -73,6 +73,12 @@ VulkanExample::~VulkanExample()
     }
 }
 
+vks::Texture2D& VulkanExample::lastTextureComputeTarget()
+{
+    size_t lastComputePassIdx = compute.passes.size() - 1;
+    return compute.passes[lastComputePassIdx].textureComputeTarget;
+}
+
 void VulkanExample::loadAssets()
 {
     textureColorMap.loadFromFile(getAssetPath() + "textures/vulkan_11_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL);
@@ -80,7 +86,8 @@ void VulkanExample::loadAssets()
 
 void VulkanExample::createComputePasses()
 {
-    shaderNames = { "edgedetect", "blur" };
+    std::vector<std::string> shaderNames = { "threshold", "blur", "channelswap", "threshold" };
+
     for (auto shaderName : shaderNames)
     {
         ComputePass computePass;
@@ -393,7 +400,7 @@ void VulkanExample::setupDescriptorSet()
     VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &graphics.descriptorSetPostCompute));
     std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
         vks::initializers::writeDescriptorSet(graphics.descriptorSetPostCompute, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &uniformBufferVS.descriptor),
-        vks::initializers::writeDescriptorSet(graphics.descriptorSetPostCompute, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &compute.passes[0].textureComputeTarget.descriptor)
+        vks::initializers::writeDescriptorSet(graphics.descriptorSetPostCompute, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &lastTextureComputeTarget().descriptor)
     };
     vkUpdateDescriptorSets(device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, nullptr);
 }
@@ -415,12 +422,14 @@ void VulkanExample::prepareGraphics()
 void setupComputeDescriptorSets(
     VkDevice device,
     VkDescriptorPool descriptorPool,
-    VkDescriptorSetLayout& descriptorSetLayout,
-    VkPipelineLayout& pipelineLayout,
-    VkDescriptorSet& descriptorSet,
-    VkDescriptorImageInfo& srcImageDescriptor,
-    VkDescriptorImageInfo& dstImageDescriptor)
+    VkDescriptorImageInfo srcImageDescriptor,
+    VulkanExample::ComputePass& computePass)
 {
+    VkDescriptorSetLayout& descriptorSetLayout = computePass.descriptorSetLayout;
+    VkPipelineLayout& pipelineLayout = computePass.pipelineLayout;
+    VkDescriptorSet& descriptorSet = computePass.descriptorSet;
+    VkDescriptorImageInfo& dstImageDescriptor = computePass.textureComputeTarget.descriptor;
+
     std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
         // Binding 0: Input image (read-only)
         vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0),
@@ -452,29 +461,20 @@ void VulkanExample::prepareCompute()
     // Get a compute queue from the device
     vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.compute, 0, &compute.queue);
 
-    // Create compute pipeline
-    // Compute pipelines are created separate from graphics pipelines even if they use the same queue
-    setupComputeDescriptorSets(
-        device,
-        descriptorPool,
-        compute.passes[0].descriptorSetLayout,
-        compute.passes[0].pipelineLayout,
-        compute.passes[0].descriptorSet,
-        textureColorMap.descriptor,
-        compute.passes[0].textureComputeTarget.descriptor);
+    VkDescriptorImageInfo srcImageDescriptor = textureColorMap.descriptor;
+    for (auto& computePass : compute.passes)
+    {
+        // Create compute pipeline
+        // Compute pipelines are created separate from graphics pipelines even if they use the same queue
+        setupComputeDescriptorSets(
+            device,
+            descriptorPool,
+            srcImageDescriptor,
+            computePass);
 
-    setupComputeDescriptorSets(
-        device,
-        descriptorPool,
-        compute.passes[1].descriptorSetLayout,
-        compute.passes[1].pipelineLayout,
-        compute.passes[1].descriptorSet,
-        compute.passes[0].textureComputeTarget.descriptor,
-        compute.passes[1].textureComputeTarget.descriptor);
-        
-    // Create compute shader pipelines
-    // VkComputePipelineCreateInfo computePipelineCreateInfo =
-    //    vks::initializers::computePipelineCreateInfo(compute.passes[0].pipelineLayout, 0);
+        //Input texture is output of the previous compute pass
+        srcImageDescriptor = computePass.textureComputeTarget.descriptor;
+    }
 
     // One pipeline for each effect
     for (auto& computePass : compute.passes)
@@ -543,7 +543,7 @@ void VulkanExample::buildCommandBuffers()
         // We won't be changing the layout of the image
         imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
         imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-        imageMemoryBarrier.image = compute.passes[0].textureComputeTarget.image;
+        imageMemoryBarrier.image = lastTextureComputeTarget().image;
         imageMemoryBarrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
         imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
         imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
