@@ -52,8 +52,11 @@ VulkanExample::~VulkanExample()
     {
         vkDestroyPipeline(device, pipeline, nullptr);
     }
-    vkDestroyPipelineLayout(device, compute.passes[0].pipelineLayout, nullptr);
-    vkDestroyDescriptorSetLayout(device, compute.passes[0].descriptorSetLayout, nullptr);
+    for (auto& computePass : compute.passes)
+    {
+        vkDestroyPipelineLayout(device, computePass.pipelineLayout, nullptr);
+        vkDestroyDescriptorSetLayout(device, computePass.descriptorSetLayout, nullptr);
+    }
     vkDestroySemaphore(device, compute.semaphore, nullptr);
     vkDestroyCommandPool(device, compute.commandPool, nullptr);
 
@@ -62,12 +65,24 @@ VulkanExample::~VulkanExample()
     uniformBufferVS.destroy();
 
     textureColorMap.destroy();
-    compute.passes[0].textureComputeTarget.destroy();
+
+    for (auto& computePass : compute.passes)
+    {
+        computePass.textureComputeTarget.destroy();
+    }
 }
 
 void VulkanExample::loadAssets()
 {
     textureColorMap.loadFromFile(getAssetPath() + "textures/vulkan_11_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL);
+}
+
+void VulkanExample::createComputePasses()
+{
+    if (compute.passes.size() < 1)
+    {
+        compute.passes.push_back(ComputePass{});
+    }
 }
 
 // Setup vertices for a single uv-mapped quad
@@ -173,7 +188,7 @@ void VulkanExample::prepareTextureTarget(vks::Texture* tex, uint32_t width, uint
     imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     // Image will be sampled in the fragment shader and used as storage target in the compute shader
-    imageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    imageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     imageCreateInfo.flags = 0;
     // If compute and graphics queue family indices differ, we create an image that can be shared between them
     // This can result in worse performance than exclusive sharing mode, but save some synchronization to keep the sample simple

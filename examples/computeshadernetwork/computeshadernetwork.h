@@ -51,7 +51,7 @@ public:
         VkCommandPool commandPool;                    // Use a separate command pool (queue family may differ from the one used for graphics)
         VkCommandBuffer commandBuffer;                // Command buffer storing the dispatch commands and barriers
         VkSemaphore semaphore;                      // Execution dependency between compute & graphic submission
-        ComputePass passes[1];
+        std::vector<ComputePass> passes;
         std::vector<VkPipeline> pipelines;            // Compute pipelines for image filters
         int32_t pipelineIndex = 0;                    // Current image filtering compute pipeline index
     } compute;
@@ -77,6 +77,8 @@ public:
     ~VulkanExample();
 
     void loadAssets();
+
+    void createComputePasses();
 
     void generateQuad();
 
@@ -110,6 +112,7 @@ public:
     {
         VulkanExampleBase::prepare();
         loadAssets();
+        createComputePasses();
         generateQuad();
         setupVertexDescriptions();
         prepareUniformBuffers();
