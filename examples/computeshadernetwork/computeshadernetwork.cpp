@@ -52,8 +52,8 @@ VulkanExample::~VulkanExample()
     {
         vkDestroyPipeline(device, pipeline, nullptr);
     }
-    vkDestroyPipelineLayout(device, compute.pipelineLayoutA, nullptr);
-    vkDestroyDescriptorSetLayout(device, compute.descriptorSetLayoutA, nullptr);
+    vkDestroyPipelineLayout(device, compute.passes[0].pipelineLayout, nullptr);
+    vkDestroyDescriptorSetLayout(device, compute.passes[0].descriptorSetLayout, nullptr);
     vkDestroySemaphore(device, compute.semaphore, nullptr);
     vkDestroyCommandPool(device, compute.commandPool, nullptr);
 
@@ -62,7 +62,7 @@ VulkanExample::~VulkanExample()
     uniformBufferVS.destroy();
 
     textureColorMap.destroy();
-    textureComputeTarget.destroy();
+    compute.passes[0].textureComputeTarget.destroy();
 }
 
 void VulkanExample::loadAssets()
@@ -367,7 +367,7 @@ void VulkanExample::setupDescriptorSet()
     VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &graphics.descriptorSetPostCompute));
     std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
         vks::initializers::writeDescriptorSet(graphics.descriptorSetPostCompute, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &uniformBufferVS.descriptor),
-        vks::initializers::writeDescriptorSet(graphics.descriptorSetPostCompute, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &textureComputeTarget.descriptor)
+        vks::initializers::writeDescriptorSet(graphics.descriptorSetPostCompute, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &compute.passes[0].textureComputeTarget.descriptor)
     };
     vkUpdateDescriptorSets(device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, nullptr);
 }
@@ -431,15 +431,15 @@ void VulkanExample::prepareCompute()
     setupComputeDescriptorSets(
         device,
         descriptorPool,
-        compute.descriptorSetLayoutA,
-        compute.pipelineLayoutA,
-        compute.descriptorSetA,
+        compute.passes[0].descriptorSetLayout,
+        compute.passes[0].pipelineLayout,
+        compute.passes[0].descriptorSet,
         textureColorMap.descriptor,
-        textureComputeTarget.descriptor);
+        compute.passes[0].textureComputeTarget.descriptor);
 
     // Create compute shader pipelines
     VkComputePipelineCreateInfo computePipelineCreateInfo =
-        vks::initializers::computePipelineCreateInfo(compute.pipelineLayoutA, 0);
+        vks::initializers::computePipelineCreateInfo(compute.passes[0].pipelineLayout, 0);
 
     // One pipeline for each effect
     shaderNames = { "edgedetect", "blur", "threshold" };
@@ -505,7 +505,7 @@ void VulkanExample::buildCommandBuffers()
         // We won't be changing the layout of the image
         imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
         imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-        imageMemoryBarrier.image = textureComputeTarget.image;
+        imageMemoryBarrier.image = compute.passes[0].textureComputeTarget.image;
         imageMemoryBarrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
         imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
         imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
@@ -558,7 +558,7 @@ void VulkanExample::buildCommandBuffers()
             clearRange.levelCount = VK_REMAINING_MIP_LEVELS;
             clearRange.baseArrayLayer = 0;
             clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-            vkCmdClearColorImage(drawCmdBuffers[i], textureComputeTarget.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
+            vkCmdClearColorImage(drawCmdBuffers[i], compute.passes[0].textureComputeTarget.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
         }
 
         VK_CHECK_RESULT(vkEndCommandBuffer(drawCmdBuffers[i]));
@@ -576,9 +576,9 @@ void VulkanExample::buildComputeCommandBuffer()
     VK_CHECK_RESULT(vkBeginCommandBuffer(compute.commandBuffer, &cmdBufInfo));
 
     vkCmdBindPipeline(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelines[compute.pipelineIndex]);
-    vkCmdBindDescriptorSets(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelineLayoutA, 0, 1, &compute.descriptorSetA, 0, 0);
+    vkCmdBindDescriptorSets(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.passes[0].pipelineLayout, 0, 1, &compute.passes[0].descriptorSet, 0, 0);
 
-    vkCmdDispatch(compute.commandBuffer, textureComputeTarget.width / 16, textureComputeTarget.height / 16, 1);
+    vkCmdDispatch(compute.commandBuffer, compute.passes[0].textureComputeTarget.width / 16, compute.passes[0].textureComputeTarget.height / 16, 1);
 
     vkEndCommandBuffer(compute.commandBuffer);
 }

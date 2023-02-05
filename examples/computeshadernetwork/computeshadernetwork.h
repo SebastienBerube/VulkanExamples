@@ -21,7 +21,6 @@ class VulkanExample : public VulkanExampleBase
 {
 private:
     vks::Texture2D textureColorMap;
-    vks::Texture2D textureComputeTarget;
 public:
     struct {
         VkPipelineVertexInputStateCreateInfo inputState;
@@ -31,28 +30,30 @@ public:
 
     // Resources for the graphics part of the example
     struct {
-        VkDescriptorSetLayout descriptorSetLayout;	// Image display shader binding layout
-        VkDescriptorSet descriptorSetPreCompute;	// Image display shader bindings before compute shader image manipulation
-        VkDescriptorSet descriptorSetPostCompute;	// Image display shader bindings after compute shader image manipulation
-        VkPipeline pipeline;						// Image display pipeline
-        VkPipelineLayout pipelineLayout;			// Layout of the graphics pipeline
+        VkDescriptorSetLayout descriptorSetLayout;  // Image display shader binding layout
+        VkDescriptorSet descriptorSetPreCompute;    // Image display shader bindings before compute shader image manipulation
+        VkDescriptorSet descriptorSetPostCompute;   // Image display shader bindings after compute shader image manipulation
+        VkPipeline pipeline;                        // Image display pipeline
+        VkPipelineLayout pipelineLayout;            // Layout of the graphics pipeline
         VkSemaphore semaphore;                      // Execution dependency between compute & graphic submission
     } graphics;
 
+    struct ComputePass {
+        VkDescriptorSetLayout descriptorSetLayout;    // Compute shader binding layout
+        VkDescriptorSet descriptorSet;                // Compute shader bindings
+        VkPipelineLayout pipelineLayout;            // Layout of the compute pipeline
+        vks::Texture2D textureComputeTarget;
+    };
+
     // Resources for the compute part of the example
     struct Compute {
-        VkQueue queue;								// Separate queue for compute commands (queue family may differ from the one used for graphics)
-        VkCommandPool commandPool;					// Use a separate command pool (queue family may differ from the one used for graphics)
-        VkCommandBuffer commandBuffer;				// Command buffer storing the dispatch commands and barriers
+        VkQueue queue;                                // Separate queue for compute commands (queue family may differ from the one used for graphics)
+        VkCommandPool commandPool;                    // Use a separate command pool (queue family may differ from the one used for graphics)
+        VkCommandBuffer commandBuffer;                // Command buffer storing the dispatch commands and barriers
         VkSemaphore semaphore;                      // Execution dependency between compute & graphic submission
-        VkDescriptorSetLayout descriptorSetLayoutA;	// Compute shader binding layout
-        VkDescriptorSetLayout descriptorSetLayoutB;	// Compute shader binding layout
-        VkDescriptorSet descriptorSetA;				// Compute shader bindings
-        VkDescriptorSet descriptorSetB;				// Compute shader bindings
-        VkPipelineLayout pipelineLayoutA;			// Layout of the compute pipeline
-        VkPipelineLayout pipelineLayoutB;			// Layout of the compute pipeline
-        std::vector<VkPipeline> pipelines;			// Compute pipelines for image filters
-        int32_t pipelineIndex = 0;					// Current image filtering compute pipeline index
+        ComputePass passes[1];
+        std::vector<VkPipeline> pipelines;            // Compute pipelines for image filters
+        int32_t pipelineIndex = 0;                    // Current image filtering compute pipeline index
     } compute;
 
     vks::Buffer vertexBuffer;
@@ -112,7 +113,7 @@ public:
         generateQuad();
         setupVertexDescriptions();
         prepareUniformBuffers();
-        prepareTextureTarget(&textureComputeTarget, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
+        prepareTextureTarget(&compute.passes[0].textureComputeTarget, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
         setupGraphicsDescriptorSetLayout();
         preparePipelines();
         setupDescriptorPool();
