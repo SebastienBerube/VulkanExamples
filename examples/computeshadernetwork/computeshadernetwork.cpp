@@ -52,8 +52,8 @@ VulkanExample::~VulkanExample()
     {
         vkDestroyPipeline(device, pipeline, nullptr);
     }
-    vkDestroyPipelineLayout(device, compute.pipelineLayout, nullptr);
-    vkDestroyDescriptorSetLayout(device, compute.descriptorSetLayout, nullptr);
+    vkDestroyPipelineLayout(device, compute.pipelineLayoutA, nullptr);
+    vkDestroyDescriptorSetLayout(device, compute.descriptorSetLayoutA, nullptr);
     vkDestroySemaphore(device, compute.semaphore, nullptr);
     vkDestroyCommandPool(device, compute.commandPool, nullptr);
 
@@ -386,14 +386,15 @@ void VulkanExample::prepareGraphics()
     VK_CHECK_RESULT(vkQueueWaitIdle(queue));
 }
 
-void VulkanExample::prepareCompute()
+void setupComputeDescriptorSets(
+    VkDevice device,
+    VkDescriptorPool descriptorPool,
+    VkDescriptorSetLayout& descriptorSetLayout,
+    VkPipelineLayout& pipelineLayout,
+    VkDescriptorSet& descriptorSet,
+    VkDescriptorImageInfo& srcImageDescriptor,
+    VkDescriptorImageInfo& dstImageDescriptor)
 {
-    // Get a compute queue from the device
-    vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.compute, 0, &compute.queue);
-
-    // Create compute pipeline
-    // Compute pipelines are created separate from graphics pipelines even if they use the same queue
-
     std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
         // Binding 0: Input image (read-only)
         vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0),
@@ -402,29 +403,46 @@ void VulkanExample::prepareCompute()
     };
 
     VkDescriptorSetLayoutCreateInfo descriptorLayout = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
-    VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorLayout, nullptr, &compute.descriptorSetLayout));
+    VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorLayout, nullptr, &descriptorSetLayout));
 
     VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo =
-        vks::initializers::pipelineLayoutCreateInfo(&compute.descriptorSetLayout, 1);
+        vks::initializers::pipelineLayoutCreateInfo(&descriptorSetLayout, 1);
 
-    VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCreateInfo, nullptr, &compute.pipelineLayout));
+    VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCreateInfo, nullptr, &pipelineLayout));
 
     VkDescriptorSetAllocateInfo allocInfo =
-        vks::initializers::descriptorSetAllocateInfo(descriptorPool, &compute.descriptorSetLayout, 1);
+        vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayout, 1);
 
-    VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &compute.descriptorSet));
+    VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet));
     std::vector<VkWriteDescriptorSet> computeWriteDescriptorSets = {
-        vks::initializers::writeDescriptorSet(compute.descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, &textureColorMap.descriptor),
-        vks::initializers::writeDescriptorSet(compute.descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &textureComputeTarget.descriptor)
+        vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, &srcImageDescriptor),
+        vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &dstImageDescriptor)
     };
     vkUpdateDescriptorSets(device, computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
+}
+
+void VulkanExample::prepareCompute()
+{
+    // Get a compute queue from the device
+    vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.compute, 0, &compute.queue);
+
+    // Create compute pipeline
+    // Compute pipelines are created separate from graphics pipelines even if they use the same queue
+    setupComputeDescriptorSets(
+        device,
+        descriptorPool,
+        compute.descriptorSetLayoutA,
+        compute.pipelineLayoutA,
+        compute.descriptorSetA,
+        textureColorMap.descriptor,
+        textureComputeTarget.descriptor);
 
     // Create compute shader pipelines
     VkComputePipelineCreateInfo computePipelineCreateInfo =
-        vks::initializers::computePipelineCreateInfo(compute.pipelineLayout, 0);
+        vks::initializers::computePipelineCreateInfo(compute.pipelineLayoutA, 0);
 
     // One pipeline for each effect
-    shaderNames = { "emboss", "edgedetect", "sharpen", "threshold", "blur" };
+    shaderNames = { "edgedetect", "blur", "threshold" };
     for (auto& shaderName : shaderNames) {
         std::string fileName = getShadersPath() + "computeshadernetwork/" + shaderName + ".comp.spv";
         computePipelineCreateInfo.stage = loadShader(fileName, VK_SHADER_STAGE_COMPUTE_BIT);
@@ -558,7 +576,7 @@ void VulkanExample::buildComputeCommandBuffer()
     VK_CHECK_RESULT(vkBeginCommandBuffer(compute.commandBuffer, &cmdBufInfo));
 
     vkCmdBindPipeline(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelines[compute.pipelineIndex]);
-    vkCmdBindDescriptorSets(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelineLayout, 0, 1, &compute.descriptorSet, 0, 0);
+    vkCmdBindDescriptorSets(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipelineLayoutA, 0, 1, &compute.descriptorSetA, 0, 0);
 
     vkCmdDispatch(compute.commandBuffer, textureComputeTarget.width / 16, textureComputeTarget.height / 16, 1);
 
