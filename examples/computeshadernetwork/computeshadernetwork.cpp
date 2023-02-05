@@ -8,6 +8,27 @@
 
 #include "computeshadernetwork.h"
 
+VulkanExample* vulkanExample;
+LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    if (vulkanExample != NULL)
+    {
+        vulkanExample->handleMessages(hWnd, uMsg, wParam, lParam);
+    }
+    return (DefWindowProc(hWnd, uMsg, wParam, lParam));
+}
+
+int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
+{
+    for (int32_t i = 0; i < __argc; i++) { VulkanExample::args.push_back(__argv[i]); };
+    vulkanExample = new VulkanExample();
+    vulkanExample->initVulkan();
+    vulkanExample->setupWindow(hInstance, WndProc);
+    vulkanExample->prepare();
+    vulkanExample->renderLoop();
+    delete(vulkanExample);
+    return 0;
+}
 
 VulkanExample::VulkanExample() : VulkanExampleBase(ENABLE_VALIDATION)
 {
@@ -44,7 +65,93 @@ VulkanExample::~VulkanExample()
     textureComputeTarget.destroy();
 }
 
-void VulkanExample::prepareTextureTarget(vks::Texture * tex, uint32_t width, uint32_t height, VkFormat format)
+void VulkanExample::loadAssets()
+{
+    textureColorMap.loadFromFile(getAssetPath() + "textures/vulkan_11_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL);
+}
+
+// Setup vertices for a single uv-mapped quad
+void VulkanExample::generateQuad()
+{
+    // Setup vertices for a single uv-mapped quad made from two triangles
+    std::vector<Vertex> vertices =
+    {
+        { {  1.0f,  1.0f, 0.0f }, { 1.0f, 1.0f } },
+        { { -1.0f,  1.0f, 0.0f }, { 0.0f, 1.0f } },
+        { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
+        { {  1.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } }
+    };
+
+    // Setup indices
+    std::vector<uint32_t> indices = { 0,1,2, 2,3,0 };
+    indexCount = static_cast<uint32_t>(indices.size());
+
+    // Create buffers
+    // For the sake of simplicity we won't stage the vertex data to the gpu memory
+    // Vertex buffer
+    VK_CHECK_RESULT(vulkanDevice->createBuffer(
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        &vertexBuffer,
+        vertices.size() * sizeof(Vertex),
+        vertices.data()));
+    // Index buffer
+    VK_CHECK_RESULT(vulkanDevice->createBuffer(
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        &indexBuffer,
+        indices.size() * sizeof(uint32_t),
+        indices.data()));
+}
+
+void VulkanExample::setupVertexDescriptions()
+{
+    // Binding description
+    vertices.bindingDescriptions = {
+        vks::initializers::vertexInputBindingDescription(VERTEX_BUFFER_BIND_ID, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX)
+    };
+
+    // Attribute descriptions
+    // Describes memory layout and shader positions
+    vertices.attributeDescriptions = {
+        // Location 0: Position
+        vks::initializers::vertexInputAttributeDescription(VERTEX_BUFFER_BIND_ID, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos)),
+        // Location 1: Texture coordinates
+        vks::initializers::vertexInputAttributeDescription(VERTEX_BUFFER_BIND_ID, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv)),
+    };
+
+    // Assign to vertex buffer
+    vertices.inputState = vks::initializers::pipelineVertexInputStateCreateInfo();
+    vertices.inputState.vertexBindingDescriptionCount = vertices.bindingDescriptions.size();
+    vertices.inputState.pVertexBindingDescriptions = vertices.bindingDescriptions.data();
+    vertices.inputState.vertexAttributeDescriptionCount = vertices.attributeDescriptions.size();
+    vertices.inputState.pVertexAttributeDescriptions = vertices.attributeDescriptions.data();
+}
+
+// Prepare and initialize uniform buffer containing shader uniforms
+void VulkanExample::prepareUniformBuffers()
+{
+    // Vertex shader uniform buffer block
+    VK_CHECK_RESULT(vulkanDevice->createBuffer(
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        &uniformBufferVS,
+        sizeof(uboVS)));
+
+    // Map persistent
+    VK_CHECK_RESULT(uniformBufferVS.map());
+
+    updateUniformBuffers();
+}
+
+void VulkanExample::updateUniformBuffers()
+{
+    uboVS.projection = camera.matrices.perspective;
+    uboVS.modelView = camera.matrices.view;
+    memcpy(uniformBufferVS.mapped, &uboVS, sizeof(uboVS));
+}
+
+void VulkanExample::prepareTextureTarget(vks::Texture* tex, uint32_t width, uint32_t height, VkFormat format)
 {
     VkFormatProperties formatProperties;
 
@@ -136,9 +243,218 @@ void VulkanExample::prepareTextureTarget(vks::Texture * tex, uint32_t width, uin
     tex->device = vulkanDevice;
 }
 
-void VulkanExample::loadAssets()
+void VulkanExample::setupDescriptorSetLayout()
 {
-    textureColorMap.loadFromFile(getAssetPath() + "textures/vulkan_11_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL);
+    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
+        // Binding 0: Vertex shader uniform buffer
+        vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0),
+        // Binding 1: Fragment shader input image
+        vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1)
+    };
+
+    VkDescriptorSetLayoutCreateInfo descriptorLayout = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
+    VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorLayout, nullptr, &graphics.descriptorSetLayout));
+
+    VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = vks::initializers::pipelineLayoutCreateInfo(&graphics.descriptorSetLayout, 1);
+    VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCreateInfo, nullptr, &graphics.pipelineLayout));
+}
+
+void VulkanExample::preparePipelines()
+{
+    VkPipelineInputAssemblyStateCreateInfo inputAssemblyState =
+        vks::initializers::pipelineInputAssemblyStateCreateInfo(
+            VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+            0,
+            VK_FALSE);
+
+    VkPipelineRasterizationStateCreateInfo rasterizationState =
+        vks::initializers::pipelineRasterizationStateCreateInfo(
+            VK_POLYGON_MODE_FILL,
+            VK_CULL_MODE_NONE,
+            VK_FRONT_FACE_COUNTER_CLOCKWISE,
+            0);
+
+    VkPipelineColorBlendAttachmentState blendAttachmentState =
+        vks::initializers::pipelineColorBlendAttachmentState(
+            0xf,
+            VK_FALSE);
+
+    VkPipelineColorBlendStateCreateInfo colorBlendState =
+        vks::initializers::pipelineColorBlendStateCreateInfo(
+            1,
+            &blendAttachmentState);
+
+    VkPipelineDepthStencilStateCreateInfo depthStencilState =
+        vks::initializers::pipelineDepthStencilStateCreateInfo(
+            VK_TRUE,
+            VK_TRUE,
+            VK_COMPARE_OP_LESS_OR_EQUAL);
+
+    VkPipelineViewportStateCreateInfo viewportState =
+        vks::initializers::pipelineViewportStateCreateInfo(1, 1, 0);
+
+    VkPipelineMultisampleStateCreateInfo multisampleState =
+        vks::initializers::pipelineMultisampleStateCreateInfo(
+            VK_SAMPLE_COUNT_1_BIT,
+            0);
+
+    std::vector<VkDynamicState> dynamicStateEnables = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
+    };
+    VkPipelineDynamicStateCreateInfo dynamicState =
+        vks::initializers::pipelineDynamicStateCreateInfo(
+            dynamicStateEnables.data(),
+            dynamicStateEnables.size(),
+            0);
+
+    // Rendering pipeline
+    // Load shaders
+    std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages;
+
+    shaderStages[0] = loadShader(getShadersPath() + "computeshadernetwork/texture.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+    shaderStages[1] = loadShader(getShadersPath() + "computeshadernetwork/texture.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo =
+        vks::initializers::pipelineCreateInfo(
+            graphics.pipelineLayout,
+            renderPass,
+            0);
+
+    pipelineCreateInfo.pVertexInputState = &vertices.inputState;
+    pipelineCreateInfo.pInputAssemblyState = &inputAssemblyState;
+    pipelineCreateInfo.pRasterizationState = &rasterizationState;
+    pipelineCreateInfo.pColorBlendState = &colorBlendState;
+    pipelineCreateInfo.pMultisampleState = &multisampleState;
+    pipelineCreateInfo.pViewportState = &viewportState;
+    pipelineCreateInfo.pDepthStencilState = &depthStencilState;
+    pipelineCreateInfo.pDynamicState = &dynamicState;
+    pipelineCreateInfo.stageCount = shaderStages.size();
+    pipelineCreateInfo.pStages = shaderStages.data();
+    pipelineCreateInfo.renderPass = renderPass;
+
+    VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCreateInfo, nullptr, &graphics.pipeline));
+}
+
+void VulkanExample::setupDescriptorPool()
+{
+    std::vector<VkDescriptorPoolSize> poolSizes = {
+        // Graphics pipelines uniform buffers
+        vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2),
+        // Graphics pipelines image samplers for displaying compute output image
+        vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2),
+        // Compute pipelines uses a storage image for image reads and writes
+        vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2),
+    };
+    VkDescriptorPoolCreateInfo descriptorPoolInfo = vks::initializers::descriptorPoolCreateInfo(poolSizes, 3);
+    VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
+}
+
+void VulkanExample::setupDescriptorSet()
+{
+    VkDescriptorSetAllocateInfo allocInfo =
+        vks::initializers::descriptorSetAllocateInfo(descriptorPool, &graphics.descriptorSetLayout, 1);
+
+    // Input image (before compute post processing)
+    VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &graphics.descriptorSetPreCompute));
+    std::vector<VkWriteDescriptorSet> baseImageWriteDescriptorSets = {
+        vks::initializers::writeDescriptorSet(graphics.descriptorSetPreCompute, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &uniformBufferVS.descriptor),
+        vks::initializers::writeDescriptorSet(graphics.descriptorSetPreCompute, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &textureColorMap.descriptor)
+    };
+    vkUpdateDescriptorSets(device, baseImageWriteDescriptorSets.size(), baseImageWriteDescriptorSets.data(), 0, nullptr);
+
+    // Final image (after compute shader processing)
+    VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &graphics.descriptorSetPostCompute));
+    std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
+        vks::initializers::writeDescriptorSet(graphics.descriptorSetPostCompute, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &uniformBufferVS.descriptor),
+        vks::initializers::writeDescriptorSet(graphics.descriptorSetPostCompute, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &textureComputeTarget.descriptor)
+    };
+    vkUpdateDescriptorSets(device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, nullptr);
+}
+
+void VulkanExample::prepareGraphics()
+{
+    // Semaphore for compute & graphics sync
+    VkSemaphoreCreateInfo semaphoreCreateInfo = vks::initializers::semaphoreCreateInfo();
+    VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &graphics.semaphore));
+
+    // Signal the semaphore
+    VkSubmitInfo submitInfo = vks::initializers::submitInfo();
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &graphics.semaphore;
+    VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+    VK_CHECK_RESULT(vkQueueWaitIdle(queue));
+}
+
+void VulkanExample::prepareCompute()
+{
+    // Get a compute queue from the device
+    vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.compute, 0, &compute.queue);
+
+    // Create compute pipeline
+    // Compute pipelines are created separate from graphics pipelines even if they use the same queue
+
+    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
+        // Binding 0: Input image (read-only)
+        vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0),
+        // Binding 1: Output image (write)
+        vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1),
+    };
+
+    VkDescriptorSetLayoutCreateInfo descriptorLayout = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
+    VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorLayout, nullptr, &compute.descriptorSetLayout));
+
+    VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo =
+        vks::initializers::pipelineLayoutCreateInfo(&compute.descriptorSetLayout, 1);
+
+    VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCreateInfo, nullptr, &compute.pipelineLayout));
+
+    VkDescriptorSetAllocateInfo allocInfo =
+        vks::initializers::descriptorSetAllocateInfo(descriptorPool, &compute.descriptorSetLayout, 1);
+
+    VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &compute.descriptorSet));
+    std::vector<VkWriteDescriptorSet> computeWriteDescriptorSets = {
+        vks::initializers::writeDescriptorSet(compute.descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, &textureColorMap.descriptor),
+        vks::initializers::writeDescriptorSet(compute.descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &textureComputeTarget.descriptor)
+    };
+    vkUpdateDescriptorSets(device, computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
+
+    // Create compute shader pipelines
+    VkComputePipelineCreateInfo computePipelineCreateInfo =
+        vks::initializers::computePipelineCreateInfo(compute.pipelineLayout, 0);
+
+    // One pipeline for each effect
+    shaderNames = { "emboss", "edgedetect", "sharpen", "threshold", "blur" };
+    for (auto& shaderName : shaderNames) {
+        std::string fileName = getShadersPath() + "computeshadernetwork/" + shaderName + ".comp.spv";
+        computePipelineCreateInfo.stage = loadShader(fileName, VK_SHADER_STAGE_COMPUTE_BIT);
+        VkPipeline pipeline;
+        VK_CHECK_RESULT(vkCreateComputePipelines(device, pipelineCache, 1, &computePipelineCreateInfo, nullptr, &pipeline));
+        compute.pipelines.push_back(pipeline);
+    }
+
+    // Separate command pool as queue family for compute may be different than graphics
+    VkCommandPoolCreateInfo cmdPoolInfo = {};
+    cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    cmdPoolInfo.queueFamilyIndex = vulkanDevice->queueFamilyIndices.compute;
+    cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    VK_CHECK_RESULT(vkCreateCommandPool(device, &cmdPoolInfo, nullptr, &compute.commandPool));
+
+    // Create a command buffer for compute operations
+    VkCommandBufferAllocateInfo cmdBufAllocateInfo =
+        vks::initializers::commandBufferAllocateInfo(
+            compute.commandPool,
+            VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            1);
+
+    VK_CHECK_RESULT(vkAllocateCommandBuffers(device, &cmdBufAllocateInfo, &compute.commandBuffer));
+
+    // Semaphore for compute & graphics sync
+    VkSemaphoreCreateInfo semaphoreCreateInfo = vks::initializers::semaphoreCreateInfo();
+    VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &compute.semaphore));
+
+    // Build a single command buffer containing the compute dispatch commands
+    buildComputeCommandBuffer();
 }
 
 void VulkanExample::buildCommandBuffers()
@@ -249,302 +565,6 @@ void VulkanExample::buildComputeCommandBuffer()
     vkEndCommandBuffer(compute.commandBuffer);
 }
 
-// Setup vertices for a single uv-mapped quad
-void VulkanExample::generateQuad()
-{
-    // Setup vertices for a single uv-mapped quad made from two triangles
-    std::vector<Vertex> vertices =
-    {
-        { {  1.0f,  1.0f, 0.0f }, { 1.0f, 1.0f } },
-        { { -1.0f,  1.0f, 0.0f }, { 0.0f, 1.0f } },
-        { { -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
-        { {  1.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } }
-    };
-
-    // Setup indices
-    std::vector<uint32_t> indices = { 0,1,2, 2,3,0 };
-    indexCount = static_cast<uint32_t>(indices.size());
-
-    // Create buffers
-    // For the sake of simplicity we won't stage the vertex data to the gpu memory
-    // Vertex buffer
-    VK_CHECK_RESULT(vulkanDevice->createBuffer(
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        &vertexBuffer,
-        vertices.size() * sizeof(Vertex),
-        vertices.data()));
-    // Index buffer
-    VK_CHECK_RESULT(vulkanDevice->createBuffer(
-        VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        &indexBuffer,
-        indices.size() * sizeof(uint32_t),
-        indices.data()));
-}
-
-void VulkanExample::setupVertexDescriptions()
-{
-    // Binding description
-    vertices.bindingDescriptions = {
-        vks::initializers::vertexInputBindingDescription(VERTEX_BUFFER_BIND_ID, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX)
-    };
-
-    // Attribute descriptions
-    // Describes memory layout and shader positions
-    vertices.attributeDescriptions = {
-        // Location 0: Position
-        vks::initializers::vertexInputAttributeDescription(VERTEX_BUFFER_BIND_ID, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, pos)),
-        // Location 1: Texture coordinates
-        vks::initializers::vertexInputAttributeDescription(VERTEX_BUFFER_BIND_ID, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv)),
-    };
-
-    // Assign to vertex buffer
-    vertices.inputState = vks::initializers::pipelineVertexInputStateCreateInfo();
-    vertices.inputState.vertexBindingDescriptionCount = vertices.bindingDescriptions.size();
-    vertices.inputState.pVertexBindingDescriptions = vertices.bindingDescriptions.data();
-    vertices.inputState.vertexAttributeDescriptionCount = vertices.attributeDescriptions.size();
-    vertices.inputState.pVertexAttributeDescriptions = vertices.attributeDescriptions.data();
-}
-
-void VulkanExample::setupDescriptorPool()
-{
-    std::vector<VkDescriptorPoolSize> poolSizes = {
-        // Graphics pipelines uniform buffers
-        vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2),
-        // Graphics pipelines image samplers for displaying compute output image
-        vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2),
-        // Compute pipelines uses a storage image for image reads and writes
-        vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2),
-    };
-    VkDescriptorPoolCreateInfo descriptorPoolInfo = vks::initializers::descriptorPoolCreateInfo(poolSizes, 3);
-    VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
-}
-
-void VulkanExample::setupDescriptorSetLayout()
-{
-    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
-        // Binding 0: Vertex shader uniform buffer
-        vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0),
-        // Binding 1: Fragment shader input image
-        vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1)
-    };
-
-    VkDescriptorSetLayoutCreateInfo descriptorLayout = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
-    VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorLayout, nullptr, &graphics.descriptorSetLayout));
-
-    VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo = vks::initializers::pipelineLayoutCreateInfo(&graphics.descriptorSetLayout, 1);
-    VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCreateInfo, nullptr, &graphics.pipelineLayout));
-}
-
-void VulkanExample::setupDescriptorSet()
-{
-    VkDescriptorSetAllocateInfo allocInfo =
-        vks::initializers::descriptorSetAllocateInfo(descriptorPool, &graphics.descriptorSetLayout, 1);
-
-    // Input image (before compute post processing)
-    VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &graphics.descriptorSetPreCompute));
-    std::vector<VkWriteDescriptorSet> baseImageWriteDescriptorSets = {
-        vks::initializers::writeDescriptorSet(graphics.descriptorSetPreCompute, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &uniformBufferVS.descriptor),
-        vks::initializers::writeDescriptorSet(graphics.descriptorSetPreCompute, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &textureColorMap.descriptor)
-    };
-    vkUpdateDescriptorSets(device, baseImageWriteDescriptorSets.size(), baseImageWriteDescriptorSets.data(), 0, nullptr);
-
-    // Final image (after compute shader processing)
-    VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &graphics.descriptorSetPostCompute));
-    std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
-        vks::initializers::writeDescriptorSet(graphics.descriptorSetPostCompute, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &uniformBufferVS.descriptor),
-        vks::initializers::writeDescriptorSet(graphics.descriptorSetPostCompute, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &textureComputeTarget.descriptor)
-    };
-    vkUpdateDescriptorSets(device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, nullptr);
-
-}
-
-void VulkanExample::preparePipelines()
-{
-    VkPipelineInputAssemblyStateCreateInfo inputAssemblyState =
-        vks::initializers::pipelineInputAssemblyStateCreateInfo(
-            VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-            0,
-            VK_FALSE);
-
-    VkPipelineRasterizationStateCreateInfo rasterizationState =
-        vks::initializers::pipelineRasterizationStateCreateInfo(
-            VK_POLYGON_MODE_FILL,
-            VK_CULL_MODE_NONE,
-            VK_FRONT_FACE_COUNTER_CLOCKWISE,
-            0);
-
-    VkPipelineColorBlendAttachmentState blendAttachmentState =
-        vks::initializers::pipelineColorBlendAttachmentState(
-            0xf,
-            VK_FALSE);
-
-    VkPipelineColorBlendStateCreateInfo colorBlendState =
-        vks::initializers::pipelineColorBlendStateCreateInfo(
-            1,
-            &blendAttachmentState);
-
-    VkPipelineDepthStencilStateCreateInfo depthStencilState =
-        vks::initializers::pipelineDepthStencilStateCreateInfo(
-            VK_TRUE,
-            VK_TRUE,
-            VK_COMPARE_OP_LESS_OR_EQUAL);
-
-    VkPipelineViewportStateCreateInfo viewportState =
-        vks::initializers::pipelineViewportStateCreateInfo(1, 1, 0);
-
-    VkPipelineMultisampleStateCreateInfo multisampleState =
-        vks::initializers::pipelineMultisampleStateCreateInfo(
-            VK_SAMPLE_COUNT_1_BIT,
-            0);
-
-    std::vector<VkDynamicState> dynamicStateEnables = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
-    VkPipelineDynamicStateCreateInfo dynamicState =
-        vks::initializers::pipelineDynamicStateCreateInfo(
-            dynamicStateEnables.data(),
-            dynamicStateEnables.size(),
-            0);
-
-    // Rendering pipeline
-    // Load shaders
-    std::array<VkPipelineShaderStageCreateInfo,2> shaderStages;
-
-    shaderStages[0] = loadShader(getShadersPath() + "computeshadernetwork/texture.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-    shaderStages[1] = loadShader(getShadersPath() + "computeshadernetwork/texture.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-
-    VkGraphicsPipelineCreateInfo pipelineCreateInfo =
-        vks::initializers::pipelineCreateInfo(
-            graphics.pipelineLayout,
-            renderPass,
-            0);
-
-    pipelineCreateInfo.pVertexInputState = &vertices.inputState;
-    pipelineCreateInfo.pInputAssemblyState = &inputAssemblyState;
-    pipelineCreateInfo.pRasterizationState = &rasterizationState;
-    pipelineCreateInfo.pColorBlendState = &colorBlendState;
-    pipelineCreateInfo.pMultisampleState = &multisampleState;
-    pipelineCreateInfo.pViewportState = &viewportState;
-    pipelineCreateInfo.pDepthStencilState = &depthStencilState;
-    pipelineCreateInfo.pDynamicState = &dynamicState;
-    pipelineCreateInfo.stageCount = shaderStages.size();
-    pipelineCreateInfo.pStages = shaderStages.data();
-    pipelineCreateInfo.renderPass = renderPass;
-
-    VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCreateInfo, nullptr, &graphics.pipeline));
-}
-
-void VulkanExample::prepareGraphics()
-{
-    // Semaphore for compute & graphics sync
-    VkSemaphoreCreateInfo semaphoreCreateInfo = vks::initializers::semaphoreCreateInfo();
-    VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &graphics.semaphore));
-    
-    // Signal the semaphore
-    VkSubmitInfo submitInfo = vks::initializers::submitInfo();
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = &graphics.semaphore;
-    VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
-    VK_CHECK_RESULT(vkQueueWaitIdle(queue));	
-}
-
-void VulkanExample::prepareCompute()
-{
-    // Get a compute queue from the device
-    vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.compute, 0, &compute.queue);
-
-    // Create compute pipeline
-    // Compute pipelines are created separate from graphics pipelines even if they use the same queue
-
-    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
-        // Binding 0: Input image (read-only)
-        vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0),
-        // Binding 1: Output image (write)
-        vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1),
-    };
-
-    VkDescriptorSetLayoutCreateInfo descriptorLayout = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
-    VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device,	&descriptorLayout, nullptr, &compute.descriptorSetLayout));
-
-    VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo =
-        vks::initializers::pipelineLayoutCreateInfo(&compute.descriptorSetLayout, 1);
-
-    VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCreateInfo, nullptr, &compute.pipelineLayout));
-
-    VkDescriptorSetAllocateInfo allocInfo =
-        vks::initializers::descriptorSetAllocateInfo(descriptorPool, &compute.descriptorSetLayout, 1);
-
-    VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &compute.descriptorSet));
-    std::vector<VkWriteDescriptorSet> computeWriteDescriptorSets = {
-        vks::initializers::writeDescriptorSet(compute.descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, &textureColorMap.descriptor),
-        vks::initializers::writeDescriptorSet(compute.descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &textureComputeTarget.descriptor)
-    };
-    vkUpdateDescriptorSets(device, computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
-
-    // Create compute shader pipelines
-    VkComputePipelineCreateInfo computePipelineCreateInfo =
-        vks::initializers::computePipelineCreateInfo(compute.pipelineLayout, 0);
-
-    // One pipeline for each effect
-    shaderNames = { "emboss", "edgedetect", "sharpen", "threshold", "blur" };
-    for (auto& shaderName : shaderNames) {
-        std::string fileName = getShadersPath() + "computeshadernetwork/" + shaderName + ".comp.spv";
-        computePipelineCreateInfo.stage = loadShader(fileName, VK_SHADER_STAGE_COMPUTE_BIT);
-        VkPipeline pipeline;
-        VK_CHECK_RESULT(vkCreateComputePipelines(device, pipelineCache, 1, &computePipelineCreateInfo, nullptr, &pipeline));
-        compute.pipelines.push_back(pipeline);
-    }
-
-    // Separate command pool as queue family for compute may be different than graphics
-    VkCommandPoolCreateInfo cmdPoolInfo = {};
-    cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    cmdPoolInfo.queueFamilyIndex = vulkanDevice->queueFamilyIndices.compute;
-    cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    VK_CHECK_RESULT(vkCreateCommandPool(device, &cmdPoolInfo, nullptr, &compute.commandPool));
-
-    // Create a command buffer for compute operations
-    VkCommandBufferAllocateInfo cmdBufAllocateInfo =
-        vks::initializers::commandBufferAllocateInfo(
-            compute.commandPool,
-            VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-            1);
-
-    VK_CHECK_RESULT(vkAllocateCommandBuffers(device, &cmdBufAllocateInfo, &compute.commandBuffer));
-
-    // Semaphore for compute & graphics sync
-    VkSemaphoreCreateInfo semaphoreCreateInfo = vks::initializers::semaphoreCreateInfo();
-    VK_CHECK_RESULT(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &compute.semaphore));
-
-    // Build a single command buffer containing the compute dispatch commands
-    buildComputeCommandBuffer();
-}
-
-// Prepare and initialize uniform buffer containing shader uniforms
-void VulkanExample::prepareUniformBuffers()
-{
-    // Vertex shader uniform buffer block
-    VK_CHECK_RESULT(vulkanDevice->createBuffer(
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        &uniformBufferVS,
-        sizeof(uboVS)));
-
-    // Map persistent
-    VK_CHECK_RESULT(uniformBufferVS.map());
-
-    updateUniformBuffers();
-}
-
-void VulkanExample::updateUniformBuffers()
-{
-    uboVS.projection = camera.matrices.perspective;
-    uboVS.modelView = camera.matrices.view;
-    memcpy(uniformBufferVS.mapped, &uboVS, sizeof(uboVS));
-}
-
 void VulkanExample::draw()
 {
     // Wait for rendering finished
@@ -580,24 +600,6 @@ void VulkanExample::draw()
     VulkanExampleBase::submitFrame();
 }
 
-void VulkanExample::prepare()
-{
-    VulkanExampleBase::prepare();
-    loadAssets();
-    generateQuad();
-    setupVertexDescriptions();
-    prepareUniformBuffers();
-    prepareTextureTarget(&textureComputeTarget, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
-    setupDescriptorSetLayout();
-    preparePipelines();
-    setupDescriptorPool();
-    setupDescriptorSet();
-    prepareGraphics();
-    prepareCompute();
-    buildCommandBuffers();
-    prepared = true;
-}
-
 void VulkanExample::render()
 {
     if (!prepared)
@@ -623,5 +625,3 @@ void VulkanExample::OnUpdateUIOverlay(vks::UIOverlay *overlay)
         overlay->checkBox("Semaphore", &computeSemaphore);
     }
 }
-
-VULKAN_EXAMPLE_MAIN()

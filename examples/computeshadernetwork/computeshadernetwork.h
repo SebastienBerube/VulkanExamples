@@ -72,37 +72,53 @@ public:
 
     ~VulkanExample();
 
-    void prepareTextureTarget(vks::Texture* tex, uint32_t width, uint32_t height, VkFormat format);
-
     void loadAssets();
-
-    void buildCommandBuffers();
-
-    void buildComputeCommandBuffer();
 
     void generateQuad();
 
     void setupVertexDescriptions();
 
-    void setupDescriptorPool();
+    void prepareUniformBuffers();
+
+    void updateUniformBuffers();
+
+    void prepareTextureTarget(vks::Texture* tex, uint32_t width, uint32_t height, VkFormat format);
 
     void setupDescriptorSetLayout();
 
-    void setupDescriptorSet();
-
     void preparePipelines();
+
+    void setupDescriptorPool();
+
+    void setupDescriptorSet();
 
     void prepareGraphics();
 
     void prepareCompute();
 
-    void prepareUniformBuffers();
+    void buildCommandBuffers();
 
-    void updateUniformBuffers();
+    void buildComputeCommandBuffer();
 
     void draw();
 
-    void prepare();
+    void prepare()
+    {
+        VulkanExampleBase::prepare();
+        loadAssets();
+        generateQuad();
+        setupVertexDescriptions();
+        prepareUniformBuffers();
+        prepareTextureTarget(&textureComputeTarget, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
+        setupDescriptorSetLayout();
+        preparePipelines();
+        setupDescriptorPool();
+        setupDescriptorSet();
+        prepareGraphics();
+        prepareCompute();
+        buildCommandBuffers();
+        prepared = true;
+    }
 
     virtual void render();
 
