@@ -87,7 +87,7 @@ public:
 
     void prepareTextureTarget(vks::Texture* tex, uint32_t width, uint32_t height, VkFormat format);
 
-    void setupDescriptorSetLayout();
+    void setupGraphicsDescriptorSetLayout();
 
     void preparePipelines();
 
@@ -113,7 +113,7 @@ public:
         setupVertexDescriptions();
         prepareUniformBuffers();
         prepareTextureTarget(&textureComputeTarget, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
-        setupDescriptorSetLayout();
+        setupGraphicsDescriptorSetLayout();
         preparePipelines();
         setupDescriptorPool();
         setupDescriptorSet();

@@ -243,7 +243,7 @@ void VulkanExample::prepareTextureTarget(vks::Texture* tex, uint32_t width, uint
     tex->device = vulkanDevice;
 }
 
-void VulkanExample::setupDescriptorSetLayout()
+void VulkanExample::setupGraphicsDescriptorSetLayout()
 {
     std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
         // Binding 0: Vertex shader uniform buffer
