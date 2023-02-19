@@ -89,37 +89,49 @@ namespace VulkanUtilities
         return setLayoutBindings;
     }
 
-    UnityComputeShader::UnityComputeShader(VkDevice device, VkDescriptorPool descriptorPool, const std::string& shader)
+    UnityComputeShader::UnityComputeShader(VulkanFramework& framework, const std::string& shader)
+        : _framework(framework)
     {
         _shaderName = shader;
-        _device = device;
-        _descriptorPool = descriptorPool;
-        Prepare();
+        PrepareDescriptorSets();
+        CreatePipeline();
     }
 
-    void UnityComputeShader::Prepare()
+    UnityComputeShader::~UnityComputeShader()
+    {
+
+    }
+
+    void UnityComputeShader::PrepareDescriptorSets()
     {
         _bindingInfos = readBindingInfosFromUnityShader(_shaderName);
 
         std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = getDescriptorSetLayoutFromUnityShader(_shaderName);
 
         VkDescriptorSetLayoutCreateInfo descriptorLayout = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
-        VK_CHECK_RESULT(vkCreateDescriptorSetLayout(_device, &descriptorLayout, nullptr, &_descriptorSetLayout));
+        VK_CHECK_RESULT(vkCreateDescriptorSetLayout(_framework.getVkDevice(), &descriptorLayout, nullptr, &_descriptorSetLayout));
 
         VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo =
             vks::initializers::pipelineLayoutCreateInfo(&_descriptorSetLayout, 1);
 
-        VK_CHECK_RESULT(vkCreatePipelineLayout(_device, &pPipelineLayoutCreateInfo, nullptr, &_pipelineLayout));
+        VK_CHECK_RESULT(vkCreatePipelineLayout(_framework.getVkDevice(), &pPipelineLayoutCreateInfo, nullptr, &_pipelineLayout));
 
         VkDescriptorSetAllocateInfo allocInfo =
-            vks::initializers::descriptorSetAllocateInfo(_descriptorPool, &_descriptorSetLayout, 1);
+            vks::initializers::descriptorSetAllocateInfo(_framework.getDescriptorPool(), &_descriptorSetLayout, 1);
 
-        VK_CHECK_RESULT(vkAllocateDescriptorSets(_device, &allocInfo, &_descriptorSet));
+        VK_CHECK_RESULT(vkAllocateDescriptorSets(_framework.getVkDevice(), &allocInfo, &_descriptorSet));
     }
 
-    UnityComputeShader::~UnityComputeShader()
+    void UnityComputeShader::CreatePipeline()
     {
+        // Create compute shader pipelines
+        VkComputePipelineCreateInfo computePipelineCreateInfo =
+            vks::initializers::computePipelineCreateInfo(_pipelineLayout, 0);
 
+        std::string fileName = _framework.getShadersPath() + "computeshadernetwork/" + _shaderName + ".comp.spv";
+        computePipelineCreateInfo.stage = _framework.loadShader(fileName, VK_SHADER_STAGE_COMPUTE_BIT);
+
+        VK_CHECK_RESULT(vkCreateComputePipelines(_framework.getVkDevice(), _framework.getPipelineCache(), 1, &computePipelineCreateInfo, nullptr, &_pipeline));
     }
 
     void UnityComputeShader::SetFloat(const std::string& name, float val)
@@ -147,7 +159,7 @@ namespace VulkanUtilities
         std::vector<VkWriteDescriptorSet> computeWriteDescriptorSets = {
             vks::initializers::writeDescriptorSet(_descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, bindingInfo.bindingIndex, &texture.descriptor)
         };
-        vkUpdateDescriptorSets(_device, computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
+        vkUpdateDescriptorSets(_framework.getVkDevice(), computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
     }
 
     void UnityComputeShader::Dispatch(int kernelIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ)

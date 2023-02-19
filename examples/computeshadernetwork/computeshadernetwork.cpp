@@ -7,6 +7,7 @@
 */
 
 #include "computeshadernetwork.h"
+#include "VulkanFramework.h"
 #include "unitycomputeshader.h"
 
 VulkanExample* vulkanExample;
@@ -457,17 +458,19 @@ void setupComputeDescriptorSets(
     vkUpdateDescriptorSets(device, computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
 }
 
-void TestUnityCompute(VkDevice device, VkDescriptorPool descriptorPool, vks::Texture2D& texture)
+void VulkanExample::testUnityCompute()
 {
-    VulkanUtilities::UnityComputeShader unityComputeTest(device, descriptorPool, "FluidSimCommon.compute");
+    VulkanUtilities::VulkanExampleFramework framework(*this, descriptorPool, pipelineCache);
 
-    unityComputeTest.SetTexture(0, "F_in", texture);
+    VulkanUtilities::UnityComputeShader unityComputeTest(framework, "FluidSimCommon.compute");
+
+    unityComputeTest.SetTexture(0, "F_in", textureColorMap);
 }
 
 
 void VulkanExample::prepareCompute()
 {
-    TestUnityCompute(device, descriptorPool, textureColorMap);
+    testUnityCompute();
 
     // Get a compute queue from the device
     vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.compute, 0, &compute.queue);

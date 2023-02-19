@@ -1,3 +1,6 @@
+#ifndef VULKAN_SHADER_NETWORK_H_
+#define VULKAN_SHADER_NETWORK_H_
+
 /*
 * Vulkan Example - Compute shader image processing
 *
@@ -100,6 +103,8 @@ public:
 
     void prepareGraphics();
 
+    void testUnityCompute();
+
     void prepareCompute();
 
     void buildCommandBuffers();
@@ -138,3 +143,5 @@ public:
 
     virtual void OnUpdateUIOverlay(vks::UIOverlay* overlay);
 };
+
+#endif //VULKAN_SHADER_NETWORK_H_

@@ -1,10 +1,15 @@
+#ifndef UNITY_COMPUTE_SHADER_H_
+#define UNITY_COMPUTE_SHADER_H_
+
 #include "vulkan/vulkan.h"
 #include "VulkanTexture.h"
+#include "VulkanFramework.h"
 #include <string>
 #include <vector>
 
 namespace VulkanUtilities
 {
+
     class IUnityComputeShader
     {
         virtual void SetFloat(const std::string& name, float val) = 0;
@@ -24,7 +29,7 @@ namespace VulkanUtilities
             uint32_t bindingIndex;
         };
 
-        UnityComputeShader(VkDevice device, VkDescriptorPool descriptorPool, const std::string& shader);
+        UnityComputeShader(VulkanFramework& framework, const std::string& shader);
         ~UnityComputeShader();
 
         void SetFloat(const std::string& name, float val);
@@ -33,10 +38,11 @@ namespace VulkanUtilities
         void Dispatch(int kernelIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ);
 
     private:
-        void Prepare();
+        void PrepareDescriptorSets();
+        void CreatePipeline();
+
         //Not owner
-        VkDevice _device = VK_NULL_HANDLE;
-        VkDescriptorPool _descriptorPool = VK_NULL_HANDLE;
+        VulkanFramework& _framework;
         std::string _shaderName;
 
         //Owner
@@ -45,7 +51,9 @@ namespace VulkanUtilities
         VkDescriptorSetLayout _descriptorSetLayout = VK_NULL_HANDLE;
         VkPipelineLayout _pipelineLayout = VK_NULL_HANDLE;
         VkDescriptorSet _descriptorSet = VK_NULL_HANDLE;
+        VkPipeline _pipeline = VK_NULL_HANDLE;
     };
 }
 
 
+#endif //UNITY_COMPUTE_SHADER_H_
