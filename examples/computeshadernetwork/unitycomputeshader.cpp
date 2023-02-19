@@ -74,109 +74,47 @@ namespace VulkanUtilities
 
         return bindingInfos;
     }
-    
+
     std::vector<VkDescriptorSetLayoutBinding> getDescriptorSetLayoutFromUnityShader(const std::string& shader)
     {
-        //TODO : Read compute shader file, auto-generate this list
-        std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
-            // F (external forces)
-            // Texture2D<float2> F_in;
-            vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0),
+        std::vector<UnityComputeShader::BindingInfo> bindingInfos = readBindingInfosFromUnityShader(shader);
 
-            // U (velocity field)
-            // Texture2D<float2> U_in;
-            // SamplerState samplerU_in;
-            // RWTexture2D<float2> U_out;
-            vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 1),
-            vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 2),
+        std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings;
 
-            // W (velocity field; working)
-            // Texture2D<float2> W_in;
-            // RWTexture2D<float2> W_out;
-            vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 3),
-            vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 4),
+        for (auto bindingInfo : bindingInfos)
+        {
+            setLayoutBindings.push_back(vks::initializers::descriptorSetLayoutBinding(bindingInfo.type, VK_SHADER_STAGE_COMPUTE_BIT, bindingInfo.bindingIndex));
+        }
 
-            // Div W
-            // RWTexture2D<float> DivW_out;
-            vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 5),
-
-            // P (pressure field)
-            // Texture2D<float> P_in;
-            // RWTexture2D<float> P_out;
-            vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 6),
-            vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 7),
-
-            // Obstacles map
-            // Texture2D<float> O_in;
-            // SamplerState samplerO_in;
-            vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, 8),
-
-            //Texture2D<float> X1_in;
-            //Texture2D<float> B1_in;
-            //RWTexture2D<float> X1_out;
-            vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 9),
-            vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 10),
-            vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 11),
-
-            //Texture2D<float2> X2_in;
-            //Texture2D<float2> B2_in;
-            //RWTexture2D<float2> X2_out;
-            vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 12),
-            vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 13),
-            vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 14),
-
-            //Texture2D<float> VOR_in;
-            //RWTexture2D<float> VOR_out;
-            vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 15),
-            vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 16),
-        };
+        return setLayoutBindings;
     }
 
-    void setupComputeDescriptorSets(
-        VkDevice device,
-        VkDescriptorPool descriptorPool,
-        VkDescriptorSetLayout& descriptorSetLayout,
-        VkPipelineLayout& pipelineLayout,
-        VkDescriptorSet& descriptorSet)
+    UnityComputeShader::UnityComputeShader(VkDevice device, VkDescriptorPool descriptorPool, const std::string& shader)
     {
-        //getDescriptorSetLayoutFromUnityShader
-        //= computePass.descriptorSetLayout;
-        /*
-        VkPipelineLayout& pipelineLayout = computePass.pipelineLayout;
-        VkDescriptorSet& descriptorSet = computePass.descriptorSet;
-        VkDescriptorImageInfo& dstImageDescriptor = computePass.textureComputeTarget.descriptor;
-        */
-        //C:\Dev\Perso\GitHub\Bers\VulkanExamples\data\shaders\unity
+        _shaderName = shader;
+        _device = device;
+        _descriptorPool = descriptorPool;
+        Prepare();
+    }
 
+    void UnityComputeShader::Prepare()
+    {
+        _bindingInfos = readBindingInfosFromUnityShader(_shaderName);
 
-        std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = getDescriptorSetLayoutFromUnityShader("FluidSimCommon.compute");
-        
+        std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = getDescriptorSetLayoutFromUnityShader(_shaderName);
+
         VkDescriptorSetLayoutCreateInfo descriptorLayout = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
-        VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorLayout, nullptr, &descriptorSetLayout));
+        VK_CHECK_RESULT(vkCreateDescriptorSetLayout(_device, &descriptorLayout, nullptr, &_descriptorSetLayout));
 
         VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo =
-            vks::initializers::pipelineLayoutCreateInfo(&descriptorSetLayout, 1);
+            vks::initializers::pipelineLayoutCreateInfo(&_descriptorSetLayout, 1);
 
-        VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCreateInfo, nullptr, &pipelineLayout));
+        VK_CHECK_RESULT(vkCreatePipelineLayout(_device, &pPipelineLayoutCreateInfo, nullptr, &_pipelineLayout));
 
         VkDescriptorSetAllocateInfo allocInfo =
-            vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayout, 1);
+            vks::initializers::descriptorSetAllocateInfo(_descriptorPool, &_descriptorSetLayout, 1);
 
-        VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet));
-
-        //TODO : Externalize this?
-        /*
-        std::vector<VkWriteDescriptorSet> computeWriteDescriptorSets = {
-            vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, &srcImageDescriptor),
-            vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &dstImageDescriptor)
-        };
-        vkUpdateDescriptorSets(device, computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
-        */
-    }
-
-    UnityComputeShader::UnityComputeShader(const std::string& shader)
-    {
-        //buildCommandBuffers
+        VK_CHECK_RESULT(vkAllocateDescriptorSets(_device, &allocInfo, &_descriptorSet));
     }
 
     UnityComputeShader::~UnityComputeShader()
@@ -196,10 +134,20 @@ namespace VulkanUtilities
 
     void UnityComputeShader::SetTexture(int kernelIndex, const std::string& nameID, vks::Texture2D& texture)
     {
+        //texture.descriptor
+        auto it = std::find_if(_bindingInfos.begin(), _bindingInfos.end(), [&nameID](const BindingInfo& item)
+            {
+                return item.name == nameID;
+            });
+
+        BindingInfo bindingInfo = *it;
+
+        //TODO : Log error here.
+
         std::vector<VkWriteDescriptorSet> computeWriteDescriptorSets = {
-            vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, &srcImageDescriptor),
-            vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &dstImageDescriptor)
+            vks::initializers::writeDescriptorSet(_descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, bindingInfo.bindingIndex, &texture.descriptor)
         };
+        vkUpdateDescriptorSets(_device, computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
     }
 
     void UnityComputeShader::Dispatch(int kernelIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ)
