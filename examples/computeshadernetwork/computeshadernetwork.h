@@ -10,6 +10,7 @@
 */
 
 #include "vulkanexamplebase.h"
+#include "unitycomputeshader.h"
 
 #define VERTEX_BUFFER_BIND_ID 0
 #define ENABLE_VALIDATION false
@@ -42,12 +43,15 @@ public:
     } graphics;
 
     struct ComputePass {
+        VulkanUtilities::UnityComputeShader* computeShader;
+
         std::string shaderName;
-        VkDescriptorSetLayout descriptorSetLayout;    // Compute shader binding layout
+        /*VkDescriptorSetLayout descriptorSetLayout;    // Compute shader binding layout
         VkDescriptorSet descriptorSet;                // Compute shader bindings
         VkPipelineLayout pipelineLayout;            // Layout of the compute pipeline
-        vks::Texture2D textureComputeTarget;
         VkPipeline pipeline;
+        */
+        vks::Texture2D textureComputeTarget;
     };
 
     // Resources for the compute part of the example
@@ -58,6 +62,8 @@ public:
         VkSemaphore semaphore;                      // Execution dependency between compute & graphic submission
         std::vector<ComputePass> passes;
     } compute;
+
+    VulkanUtilities::VulkanExampleFramework* framework;
 
     vks::Buffer vertexBuffer;
     vks::Buffer indexBuffer;

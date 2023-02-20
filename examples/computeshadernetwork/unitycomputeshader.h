@@ -34,12 +34,12 @@ namespace VulkanUtilities
 
         void SetFloat(const std::string& name, float val);
         void SetInt(const std::string& name, int val);
-        void SetTexture(int kernelIndex, const std::string& name, vks::Texture2D& texture);
-        void Dispatch(int kernelIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ);
+        void SetTexture(int kernelIndex, const std::string& name, VkDescriptorImageInfo& textureDescriptor);
+        void Dispatch(VkCommandBuffer commandBuffer, int kernelIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ);
+        void CreatePipeline();
 
     private:
         void PrepareDescriptorSets();
-        void CreatePipeline();
 
         //Not owner
         VulkanFramework& _framework;

@@ -52,14 +52,10 @@ VulkanExample::~VulkanExample()
     // Compute
     for (auto& computePass : compute.passes)
     {
-        vkDestroyPipeline(device, computePass.pipeline, nullptr);
+        delete computePass.computeShader;
+        computePass.computeShader = nullptr;
     }
 
-    for (auto& computePass : compute.passes)
-    {
-        vkDestroyPipelineLayout(device, computePass.pipelineLayout, nullptr);
-        vkDestroyDescriptorSetLayout(device, computePass.descriptorSetLayout, nullptr);
-    }
     vkDestroySemaphore(device, compute.semaphore, nullptr);
     vkDestroyCommandPool(device, compute.commandPool, nullptr);
 
@@ -88,12 +84,15 @@ void VulkanExample::loadAssets()
 
 void VulkanExample::createComputePasses()
 {
+    //framework = new VulkanUtilities::VulkanExampleFramework(*this, descriptorPool, pipelineCache);// (*this, descriptorPool, pipelineCache);
+
     std::vector<std::string> shaderNames = { "threshold", "blur", "channelswap", "threshold" };
 
     for (auto shaderName : shaderNames)
     {
         ComputePass computePass;
         computePass.shaderName = shaderName;
+        //computePass.computeShader = new VulkanUtilities::UnityComputeShader(*framework, shaderName);
         compute.passes.push_back(computePass);
     }
 }
@@ -421,56 +420,10 @@ void VulkanExample::prepareGraphics()
     VK_CHECK_RESULT(vkQueueWaitIdle(queue));
 }
 
-void setupComputeDescriptorSets(
-    VkDevice device,
-    VkDescriptorPool descriptorPool,
-    VkDescriptorImageInfo srcImageDescriptor,
-    VulkanExample::ComputePass& computePass)
-{
-    VkDescriptorSetLayout& descriptorSetLayout = computePass.descriptorSetLayout;
-    VkPipelineLayout& pipelineLayout = computePass.pipelineLayout;
-    VkDescriptorSet& descriptorSet = computePass.descriptorSet;
-    VkDescriptorImageInfo& dstImageDescriptor = computePass.textureComputeTarget.descriptor;
-
-    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
-        // Binding 0: Input image (read-only)
-        vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0),
-        // Binding 1: Output image (write)
-        vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1),
-    };
-
-    VkDescriptorSetLayoutCreateInfo descriptorLayout = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
-    VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorLayout, nullptr, &descriptorSetLayout));
-
-    VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo =
-        vks::initializers::pipelineLayoutCreateInfo(&descriptorSetLayout, 1);
-
-    VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCreateInfo, nullptr, &pipelineLayout));
-
-    VkDescriptorSetAllocateInfo allocInfo =
-        vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayout, 1);
-
-    VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet));
-    std::vector<VkWriteDescriptorSet> computeWriteDescriptorSets = {
-        vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, &srcImageDescriptor),
-        vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &dstImageDescriptor)
-    };
-    vkUpdateDescriptorSets(device, computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
-}
-
-void VulkanExample::testUnityCompute()
-{
-    VulkanUtilities::VulkanExampleFramework framework(*this, descriptorPool, pipelineCache);
-
-    VulkanUtilities::UnityComputeShader unityComputeTest(framework, "FluidSimCommon.compute");
-
-    unityComputeTest.SetTexture(0, "F_in", textureColorMap);
-}
-
-
 void VulkanExample::prepareCompute()
 {
-    testUnityCompute();
+    //testUnityCompute();
+    framework = new VulkanUtilities::VulkanExampleFramework(*this, descriptorPool, pipelineCache);// (*this, descriptorPool, pipelineCache);
 
     // Get a compute queue from the device
     vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.compute, 0, &compute.queue);
@@ -478,13 +431,9 @@ void VulkanExample::prepareCompute()
     VkDescriptorImageInfo srcImageDescriptor = textureColorMap.descriptor;
     for (auto& computePass : compute.passes)
     {
-        // Create compute pipeline
-        // Compute pipelines are created separate from graphics pipelines even if they use the same queue
-        setupComputeDescriptorSets(
-            device,
-            descriptorPool,
-            srcImageDescriptor,
-            computePass);
+        computePass.computeShader = new VulkanUtilities::UnityComputeShader(*framework, computePass.shaderName);
+        computePass.computeShader->SetTexture(0, "inputImage", srcImageDescriptor);
+        computePass.computeShader->SetTexture(0, "resultImage", computePass.textureComputeTarget.descriptor);
 
         //Input texture is output of the previous compute pass
         srcImageDescriptor = computePass.textureComputeTarget.descriptor;
@@ -493,14 +442,8 @@ void VulkanExample::prepareCompute()
     // One pipeline for each effect
     for (auto& computePass : compute.passes)
     {
-        // Create compute shader pipelines
-        VkComputePipelineCreateInfo computePipelineCreateInfo =
-            vks::initializers::computePipelineCreateInfo(computePass.pipelineLayout, 0);
-
-        std::string fileName = getShadersPath() + "computeshadernetwork/" + computePass.shaderName + ".comp.spv";
-        computePipelineCreateInfo.stage = loadShader(fileName, VK_SHADER_STAGE_COMPUTE_BIT);
-        
-        VK_CHECK_RESULT(vkCreateComputePipelines(device, pipelineCache, 1, &computePipelineCreateInfo, nullptr, &computePass.pipeline));
+        //TODO : Test pipeline creation in UnityComputeShader constructor
+        computePass.computeShader->CreatePipeline();
     }
 
     // Separate command pool as queue family for compute may be different than graphics
@@ -629,9 +572,10 @@ void VulkanExample::buildComputeCommandBuffer()
 
     for (auto& computePass : compute.passes)
     {
-        vkCmdBindPipeline(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePass.pipeline);
-        vkCmdBindDescriptorSets(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePass.pipelineLayout, 0, 1, &computePass.descriptorSet, 0, 0);
-        vkCmdDispatch(compute.commandBuffer, computePass.textureComputeTarget.width / 16, computePass.textureComputeTarget.height / 16, 1);
+        computePass.computeShader->Dispatch(compute.commandBuffer, 0, computePass.textureComputeTarget.width / 16, computePass.textureComputeTarget.height / 16, 1);
+        //vkCmdBindPipeline(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePass.pipeline);
+        //vkCmdBindDescriptorSets(compute.commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePass.pipelineLayout, 0, 1, &computePass.descriptorSet, 0, 0);
+        //vkCmdDispatch(compute.commandBuffer, computePass.textureComputeTarget.width / 16, computePass.textureComputeTarget.height / 16, 1);
     }
     
     vkEndCommandBuffer(compute.commandBuffer);

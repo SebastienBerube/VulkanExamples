@@ -9,10 +9,18 @@ namespace VulkanUtilities
 
     }
 
+    std::vector<UnityComputeShader::BindingInfo> readBindingInfosFromExampleShaders (const std::string& shader)
+    {
+        std::vector<UnityComputeShader::BindingInfo> bindingInfos;
+        PushBindind(bindingInfos, "inputImage", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM);
+        PushBindind(bindingInfos, "resultImage", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM);
+        return bindingInfos;
+    }
+
     std::vector<UnityComputeShader::BindingInfo> readBindingInfosFromUnityShader(const std::string& shader)
     {
         std::vector<UnityComputeShader::BindingInfo> bindingInfos;
-
+        
         // F (external forces)
         // Texture2D<float2> F_in;
         PushBindind(bindingInfos, "F_in", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT);
@@ -71,14 +79,12 @@ namespace VulkanUtilities
 
         // RWTexture2D<float> VOR_out;
         PushBindind(bindingInfos, "VOR_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT);
-
+        
         return bindingInfos;
     }
 
-    std::vector<VkDescriptorSetLayoutBinding> getDescriptorSetLayoutFromUnityShader(const std::string& shader)
+    std::vector<VkDescriptorSetLayoutBinding> getDescriptorSetLayout(const std::vector<UnityComputeShader::BindingInfo>& bindingInfos)
     {
-        std::vector<UnityComputeShader::BindingInfo> bindingInfos = readBindingInfosFromUnityShader(shader);
-
         std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings;
 
         for (auto bindingInfo : bindingInfos)
@@ -94,19 +100,25 @@ namespace VulkanUtilities
     {
         _shaderName = shader;
         PrepareDescriptorSets();
-        CreatePipeline();
+        //CreatePipeline(); TODO : Test this here, during construction.
     }
 
     UnityComputeShader::~UnityComputeShader()
     {
+        VkDevice device = _framework.getVkDevice();
 
+        //Note : Previously, all compute shader pipelines were deleted first, then 
+        //       all vkDestroyPipelineLayout and vkDestroyDescriptorSetLayout in a 2nd loop.
+        vkDestroyPipeline(device, _pipeline, nullptr);
+        vkDestroyPipelineLayout(device, _pipelineLayout, nullptr);
+        vkDestroyDescriptorSetLayout(device, _descriptorSetLayout, nullptr);
     }
 
     void UnityComputeShader::PrepareDescriptorSets()
     {
-        _bindingInfos = readBindingInfosFromUnityShader(_shaderName);
+        _bindingInfos = readBindingInfosFromExampleShaders(_shaderName);
 
-        std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = getDescriptorSetLayoutFromUnityShader(_shaderName);
+        std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = getDescriptorSetLayout(_bindingInfos);
 
         VkDescriptorSetLayoutCreateInfo descriptorLayout = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
         VK_CHECK_RESULT(vkCreateDescriptorSetLayout(_framework.getVkDevice(), &descriptorLayout, nullptr, &_descriptorSetLayout));
@@ -144,9 +156,8 @@ namespace VulkanUtilities
 
     }
 
-    void UnityComputeShader::SetTexture(int kernelIndex, const std::string& nameID, vks::Texture2D& texture)
+    void UnityComputeShader::SetTexture(int kernelIndex, const std::string& nameID, VkDescriptorImageInfo& textureDescriptor)
     {
-        //texture.descriptor
         auto it = std::find_if(_bindingInfos.begin(), _bindingInfos.end(), [&nameID](const BindingInfo& item)
             {
                 return item.name == nameID;
@@ -155,16 +166,17 @@ namespace VulkanUtilities
         BindingInfo bindingInfo = *it;
 
         //TODO : Log error here.
-
         std::vector<VkWriteDescriptorSet> computeWriteDescriptorSets = {
-            vks::initializers::writeDescriptorSet(_descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, bindingInfo.bindingIndex, &texture.descriptor)
+            vks::initializers::writeDescriptorSet(_descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, bindingInfo.bindingIndex, &textureDescriptor)
         };
         vkUpdateDescriptorSets(_framework.getVkDevice(), computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
     }
 
-    void UnityComputeShader::Dispatch(int kernelIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ)
+    void UnityComputeShader::Dispatch(VkCommandBuffer commandBuffer, int kernelIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ)
     {
-
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipeline);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipelineLayout, 0, 1, &_descriptorSet, 0, 0);
+        vkCmdDispatch(commandBuffer, threadGroupsX, threadGroupsY, threadGroupsZ);
     }
 }
 
