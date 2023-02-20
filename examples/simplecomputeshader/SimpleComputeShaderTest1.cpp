@@ -10,29 +10,7 @@
 #include "VulkanFramework.h"
 #include "SimpleComputeShader.h"
 
-VulkanExample* vulkanExample;
-LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-    if (vulkanExample != NULL)
-    {
-        vulkanExample->handleMessages(hWnd, uMsg, wParam, lParam);
-    }
-    return (DefWindowProc(hWnd, uMsg, wParam, lParam));
-}
-
-int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
-{
-    for (int32_t i = 0; i < __argc; i++) { VulkanExample::args.push_back(__argv[i]); };
-    vulkanExample = new VulkanExample();
-    vulkanExample->initVulkan();
-    vulkanExample->setupWindow(hInstance, WndProc);
-    vulkanExample->prepare();
-    vulkanExample->renderLoop();
-    delete(vulkanExample);
-    return 0;
-}
-
-VulkanExample::VulkanExample() : VulkanExampleBase(ENABLE_VALIDATION)
+SimpleComputeShaderTest1::SimpleComputeShaderTest1() : VulkanExampleBase(ENABLE_VALIDATION)
 {
     title = "Simple Compute shader test 1";
     camera.type = Camera::CameraType::lookat;
@@ -41,7 +19,7 @@ VulkanExample::VulkanExample() : VulkanExampleBase(ENABLE_VALIDATION)
     camera.setPerspective(60.0f, (float)width * 0.5f / (float)height, 1.0f, 256.0f);
 }
 
-VulkanExample::~VulkanExample()
+SimpleComputeShaderTest1::~SimpleComputeShaderTest1()
 {
     // Graphics
     vkDestroyPipeline(device, graphics.pipeline, nullptr);
@@ -71,18 +49,18 @@ VulkanExample::~VulkanExample()
     }
 }
 
-vks::Texture2D& VulkanExample::lastTextureComputeTarget()
+vks::Texture2D& SimpleComputeShaderTest1::lastTextureComputeTarget()
 {
     size_t lastComputePassIdx = compute.passes.size() - 1;
     return compute.passes[lastComputePassIdx].textureComputeTarget;
 }
 
-void VulkanExample::loadAssets()
+void SimpleComputeShaderTest1::loadAssets()
 {
     textureColorMap.loadFromFile(getAssetPath() + "textures/vulkan_11_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL);
 }
 
-void VulkanExample::createComputePasses()
+void SimpleComputeShaderTest1::createComputePasses()
 {
     //framework = new VulkanUtilities::VulkanExampleFramework(*this, descriptorPool, pipelineCache);// (*this, descriptorPool, pipelineCache);
 
@@ -97,7 +75,7 @@ void VulkanExample::createComputePasses()
 }
 
 // Setup vertices for a single uv-mapped quad
-void VulkanExample::generateQuad()
+void SimpleComputeShaderTest1::generateQuad()
 {
     // Setup vertices for a single uv-mapped quad made from two triangles
     std::vector<Vertex> vertices =
@@ -130,7 +108,7 @@ void VulkanExample::generateQuad()
         indices.data()));
 }
 
-void VulkanExample::setupVertexDescriptions()
+void SimpleComputeShaderTest1::setupVertexDescriptions()
 {
     // Binding description
     vertices.bindingDescriptions = {
@@ -155,7 +133,7 @@ void VulkanExample::setupVertexDescriptions()
 }
 
 // Prepare and initialize uniform buffer containing shader uniforms
-void VulkanExample::prepareUniformBuffers()
+void SimpleComputeShaderTest1::prepareUniformBuffers()
 {
     // Vertex shader uniform buffer block
     VK_CHECK_RESULT(vulkanDevice->createBuffer(
@@ -170,14 +148,14 @@ void VulkanExample::prepareUniformBuffers()
     updateUniformBuffers();
 }
 
-void VulkanExample::updateUniformBuffers()
+void SimpleComputeShaderTest1::updateUniformBuffers()
 {
     uboVS.projection = camera.matrices.perspective;
     uboVS.modelView = camera.matrices.view;
     memcpy(uniformBufferVS.mapped, &uboVS, sizeof(uboVS));
 }
 
-void VulkanExample::prepareTextureTarget(vks::Texture* tex, uint32_t width, uint32_t height, VkFormat format)
+void SimpleComputeShaderTest1::prepareTextureTarget(vks::Texture* tex, uint32_t width, uint32_t height, VkFormat format)
 {
     VkFormatProperties formatProperties;
 
@@ -269,7 +247,7 @@ void VulkanExample::prepareTextureTarget(vks::Texture* tex, uint32_t width, uint
     tex->device = vulkanDevice;
 }
 
-void VulkanExample::setupGraphicsDescriptorSetLayout()
+void SimpleComputeShaderTest1::setupGraphicsDescriptorSetLayout()
 {
     std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
         // Binding 0: Vertex shader uniform buffer
@@ -285,7 +263,7 @@ void VulkanExample::setupGraphicsDescriptorSetLayout()
     VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCreateInfo, nullptr, &graphics.pipelineLayout));
 }
 
-void VulkanExample::preparePipelines()
+void SimpleComputeShaderTest1::preparePipelines()
 {
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyState =
         vks::initializers::pipelineInputAssemblyStateCreateInfo(
@@ -362,7 +340,7 @@ void VulkanExample::preparePipelines()
     VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCreateInfo, nullptr, &graphics.pipeline));
 }
 
-void VulkanExample::setupDescriptorPool()
+void SimpleComputeShaderTest1::setupDescriptorPool()
 {
     std::vector<VkDescriptorPoolSize> poolSizes = {
         // Graphics pipelines uniform buffers
@@ -383,7 +361,7 @@ void VulkanExample::setupDescriptorPool()
     VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
 }
 
-void VulkanExample::setupDescriptorSet()
+void SimpleComputeShaderTest1::setupDescriptorSet()
 {
     VkDescriptorSetAllocateInfo allocInfo =
         vks::initializers::descriptorSetAllocateInfo(descriptorPool, &graphics.descriptorSetLayout, 1);
@@ -405,7 +383,7 @@ void VulkanExample::setupDescriptorSet()
     vkUpdateDescriptorSets(device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, nullptr);
 }
 
-void VulkanExample::prepareGraphics()
+void SimpleComputeShaderTest1::prepareGraphics()
 {
     // Semaphore for compute & graphics sync
     VkSemaphoreCreateInfo semaphoreCreateInfo = vks::initializers::semaphoreCreateInfo();
@@ -419,7 +397,7 @@ void VulkanExample::prepareGraphics()
     VK_CHECK_RESULT(vkQueueWaitIdle(queue));
 }
 
-void VulkanExample::prepareCompute()
+void SimpleComputeShaderTest1::prepareCompute()
 {
     //testUnityCompute();
     framework = new VulkanUtilities::VulkanExampleFramework(*this, descriptorPool, pipelineCache);// (*this, descriptorPool, pipelineCache);
@@ -469,7 +447,7 @@ void VulkanExample::prepareCompute()
     buildComputeCommandBuffer();
 }
 
-void VulkanExample::buildCommandBuffers()
+void SimpleComputeShaderTest1::buildCommandBuffers()
 {
     VkCommandBufferBeginInfo cmdBufInfo = vks::initializers::commandBufferBeginInfo();
 
@@ -560,7 +538,7 @@ void VulkanExample::buildCommandBuffers()
 
 }
 
-void VulkanExample::buildComputeCommandBuffer()
+void SimpleComputeShaderTest1::buildComputeCommandBuffer()
 {
     // Flush the queue if we're rebuilding the command buffer after a pipeline change to ensure it's not currently in use
     vkQueueWaitIdle(compute.queue);
@@ -577,7 +555,7 @@ void VulkanExample::buildComputeCommandBuffer()
     vkEndCommandBuffer(compute.commandBuffer);
 }
 
-void VulkanExample::draw()
+void SimpleComputeShaderTest1::draw()
 {
     // Wait for rendering finished
     VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
@@ -612,7 +590,7 @@ void VulkanExample::draw()
     VulkanExampleBase::submitFrame();
 }
 
-void VulkanExample::render()
+void SimpleComputeShaderTest1::render()
 {
     if (!prepared)
         return;
@@ -622,13 +600,13 @@ void VulkanExample::render()
     }
 }
 
-void VulkanExample::viewChanged()
+void SimpleComputeShaderTest1::viewChanged()
 {
     camera.setPerspective(60.0f, (float)width * 0.5f / (float)height, 1.0f, 256.0f);
     updateUniformBuffers();
 }
 
-void VulkanExample::OnUpdateUIOverlay(vks::UIOverlay *overlay)
+void SimpleComputeShaderTest1::OnUpdateUIOverlay(vks::UIOverlay *overlay)
 {
     if (overlay->header("Settings")) {
         /*if (overlay->comboBox("Shader", &compute.pipelineIndex, shaderNames)) {

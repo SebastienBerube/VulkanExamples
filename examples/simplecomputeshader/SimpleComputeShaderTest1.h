@@ -21,7 +21,7 @@ struct Vertex {
     float uv[2];
 };
 
-class VulkanExample : public VulkanExampleBase
+class SimpleComputeShaderTest1 : public VulkanExampleBase
 {
 private:
     vks::Texture2D textureColorMap;
@@ -73,9 +73,9 @@ public:
 
     int vertexBufferSize;
 
-    VulkanExample();
+    SimpleComputeShaderTest1();
 
-    ~VulkanExample();
+    ~SimpleComputeShaderTest1();
 
     vks::Texture2D& lastTextureComputeTarget();
 
