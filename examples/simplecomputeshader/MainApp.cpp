@@ -10,7 +10,7 @@
 #include "VulkanFramework.h"
 #include "SimpleComputeShader.h"
 
-SimpleComputeShaderTest1* vulkanExample;
+VulkanExampleBase* vulkanExample;
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     if (vulkanExample != NULL)
@@ -22,7 +22,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
 {
-    for (int32_t i = 0; i < __argc; i++) { SimpleComputeShaderTest1::args.push_back(__argv[i]); };
+    for (int32_t i = 0; i < __argc; i++)
+    {
+        VulkanExampleBase::args.push_back(__argv[i]);
+    };
+
+    //TODO : Add switch here
     vulkanExample = new SimpleComputeShaderTest1();
     vulkanExample->initVulkan();
     vulkanExample->setupWindow(hInstance, WndProc);
