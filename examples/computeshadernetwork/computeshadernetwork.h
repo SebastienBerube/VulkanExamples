@@ -1,6 +1,3 @@
-#ifndef VULKAN_SHADER_NETWORK_H_
-#define VULKAN_SHADER_NETWORK_H_
-
 /*
 * Vulkan Example - Compute shader image processing
 *
@@ -10,7 +7,6 @@
 */
 
 #include "vulkanexamplebase.h"
-#include "unitycomputeshader.h"
 
 #define VERTEX_BUFFER_BIND_ID 0
 #define ENABLE_VALIDATION false
@@ -43,15 +39,12 @@ public:
     } graphics;
 
     struct ComputePass {
-        VulkanUtilities::UnityComputeShader* computeShader;
-
         std::string shaderName;
-        /*VkDescriptorSetLayout descriptorSetLayout;    // Compute shader binding layout
+        VkDescriptorSetLayout descriptorSetLayout;    // Compute shader binding layout
         VkDescriptorSet descriptorSet;                // Compute shader bindings
         VkPipelineLayout pipelineLayout;            // Layout of the compute pipeline
-        VkPipeline pipeline;
-        */
         vks::Texture2D textureComputeTarget;
+        VkPipeline pipeline;
     };
 
     // Resources for the compute part of the example
@@ -62,8 +55,6 @@ public:
         VkSemaphore semaphore;                      // Execution dependency between compute & graphic submission
         std::vector<ComputePass> passes;
     } compute;
-
-    VulkanUtilities::VulkanExampleFramework* framework;
 
     vks::Buffer vertexBuffer;
     vks::Buffer indexBuffer;
@@ -109,8 +100,6 @@ public:
 
     void prepareGraphics();
 
-    void testUnityCompute();
-
     void prepareCompute();
 
     void buildCommandBuffers();
@@ -127,12 +116,12 @@ public:
         generateQuad();
         setupVertexDescriptions();
         prepareUniformBuffers();
-        
-        for(auto& computePass : compute.passes)
+
+        for (auto& computePass : compute.passes)
         {
             prepareTextureTarget(&computePass.textureComputeTarget, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
         }
-        
+
         setupGraphicsDescriptorSetLayout();
         preparePipelines();
         setupDescriptorPool();
@@ -149,5 +138,3 @@ public:
 
     virtual void OnUpdateUIOverlay(vks::UIOverlay* overlay);
 };
-
-#endif //VULKAN_SHADER_NETWORK_H_
