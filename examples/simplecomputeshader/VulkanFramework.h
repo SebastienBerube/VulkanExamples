@@ -4,7 +4,6 @@
 #include "vulkan/vulkan.h"
 #include "vulkanexamplebase.h"
 #include <string>
-//#include <functional>
 
 namespace VulkanUtilities
 {

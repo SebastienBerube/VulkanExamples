@@ -1,25 +1,25 @@
-#include "unitycomputeshader.h"
+#include "SimpleComputeShader.h"
 #include "vulkanexamplebase.h"
 
 namespace VulkanUtilities
 {
-    void PushBindind(std::vector<UnityComputeShader::BindingInfo>& bindingInfos, const std::string& name, VkDescriptorType type, VkFormat format)
+    void PushBindind(std::vector<SimpleComputeShader::BindingInfo>& bindingInfos, const std::string& name, VkDescriptorType type, VkFormat format)
     {
-        bindingInfos.push_back(UnityComputeShader::BindingInfo{ name, type, format, (uint32_t)bindingInfos.size() });
+        bindingInfos.push_back(SimpleComputeShader::BindingInfo{ name, type, format, (uint32_t)bindingInfos.size() });
 
     }
 
-    std::vector<UnityComputeShader::BindingInfo> readBindingInfosFromExampleShaders (const std::string& shader)
+    std::vector<SimpleComputeShader::BindingInfo> readBindingInfosFromExampleShaders (const std::string& shader)
     {
-        std::vector<UnityComputeShader::BindingInfo> bindingInfos;
+        std::vector<SimpleComputeShader::BindingInfo> bindingInfos;
         PushBindind(bindingInfos, "inputImage", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM);
         PushBindind(bindingInfos, "resultImage", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM);
         return bindingInfos;
     }
 
-    std::vector<UnityComputeShader::BindingInfo> readBindingInfosFromUnityShader(const std::string& shader)
+    std::vector<SimpleComputeShader::BindingInfo> readBindingInfosFromUnityShader(const std::string& shader)
     {
-        std::vector<UnityComputeShader::BindingInfo> bindingInfos;
+        std::vector<SimpleComputeShader::BindingInfo> bindingInfos;
         
         // F (external forces)
         // Texture2D<float2> F_in;
@@ -83,7 +83,7 @@ namespace VulkanUtilities
         return bindingInfos;
     }
 
-    std::vector<VkDescriptorSetLayoutBinding> getDescriptorSetLayout(const std::vector<UnityComputeShader::BindingInfo>& bindingInfos)
+    std::vector<VkDescriptorSetLayoutBinding> getDescriptorSetLayout(const std::vector<SimpleComputeShader::BindingInfo>& bindingInfos)
     {
         std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings;
 
@@ -95,7 +95,7 @@ namespace VulkanUtilities
         return setLayoutBindings;
     }
 
-    UnityComputeShader::UnityComputeShader(VulkanFramework& framework, const std::string& shader)
+    SimpleComputeShader::SimpleComputeShader(VulkanFramework& framework, const std::string& shader)
         : _framework(framework)
     {
         _shaderName = shader;
@@ -103,7 +103,7 @@ namespace VulkanUtilities
         //CreatePipeline(); TODO : Test this here, during construction.
     }
 
-    UnityComputeShader::~UnityComputeShader()
+    SimpleComputeShader::~SimpleComputeShader()
     {
         VkDevice device = _framework.getVkDevice();
 
@@ -114,7 +114,7 @@ namespace VulkanUtilities
         vkDestroyDescriptorSetLayout(device, _descriptorSetLayout, nullptr);
     }
 
-    void UnityComputeShader::PrepareDescriptorSets()
+    void SimpleComputeShader::PrepareDescriptorSets()
     {
         _bindingInfos = readBindingInfosFromExampleShaders(_shaderName);
 
@@ -134,7 +134,7 @@ namespace VulkanUtilities
         VK_CHECK_RESULT(vkAllocateDescriptorSets(_framework.getVkDevice(), &allocInfo, &_descriptorSet));
     }
 
-    void UnityComputeShader::CreatePipeline()
+    void SimpleComputeShader::CreatePipeline()
     {
         // Create compute shader pipelines
         VkComputePipelineCreateInfo computePipelineCreateInfo =
@@ -146,17 +146,17 @@ namespace VulkanUtilities
         VK_CHECK_RESULT(vkCreateComputePipelines(_framework.getVkDevice(), _framework.getPipelineCache(), 1, &computePipelineCreateInfo, nullptr, &_pipeline));
     }
 
-    void UnityComputeShader::SetFloat(const std::string& name, float val)
+    void SimpleComputeShader::SetFloat(const std::string& name, float val)
     {
 
     }
 
-    void UnityComputeShader::SetInt(const std::string& name, int val)
+    void SimpleComputeShader::SetInt(const std::string& name, int val)
     {
 
     }
 
-    void UnityComputeShader::SetTexture(int kernelIndex, const std::string& nameID, VkDescriptorImageInfo& textureDescriptor)
+    void SimpleComputeShader::SetTexture(int kernelIndex, const std::string& nameID, VkDescriptorImageInfo& textureDescriptor)
     {
         auto it = std::find_if(_bindingInfos.begin(), _bindingInfos.end(), [&nameID](const BindingInfo& item)
             {
@@ -172,7 +172,7 @@ namespace VulkanUtilities
         vkUpdateDescriptorSets(_framework.getVkDevice(), computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
     }
 
-    void UnityComputeShader::Dispatch(VkCommandBuffer commandBuffer, int kernelIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ)
+    void SimpleComputeShader::Dispatch(VkCommandBuffer commandBuffer, int kernelIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ)
     {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipelineLayout, 0, 1, &_descriptorSet, 0, 0);

@@ -1,7 +1,6 @@
 #include "vulkan/vulkan.h"
-#include <string>
-#include <functional>
 #include "VulkanFramework.h"
+#include <string>
 
 namespace VulkanUtilities
 {

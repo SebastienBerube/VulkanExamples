@@ -137,6 +137,7 @@ set(EXAMPLES
 	raytracingshadows	
 	renderheadless
 	screenshot
+    simplecomputeshader
 	shadowmapping
 	shadowmappingomni
 	shadowmappingcascade

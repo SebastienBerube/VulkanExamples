@@ -10,15 +10,7 @@
 namespace VulkanUtilities
 {
 
-    class IUnityComputeShader
-    {
-        virtual void SetFloat(const std::string& name, float val) = 0;
-        virtual void SetInt(const std::string& name, int val) = 0;
-        virtual void SetTexture(int kernelIndex, int nameID, vks::Texture2D& texture) = 0;
-        virtual void Dispatch(int kernelIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ) = 0;
-    };
-
-    class UnityComputeShader
+    class SimpleComputeShader
     {
     public:
         struct BindingInfo
@@ -29,8 +21,8 @@ namespace VulkanUtilities
             uint32_t bindingIndex;
         };
 
-        UnityComputeShader(VulkanFramework& framework, const std::string& shader);
-        ~UnityComputeShader();
+        SimpleComputeShader(VulkanFramework& framework, const std::string& shader);
+        ~SimpleComputeShader();
 
         void SetFloat(const std::string& name, float val);
         void SetInt(const std::string& name, int val);
