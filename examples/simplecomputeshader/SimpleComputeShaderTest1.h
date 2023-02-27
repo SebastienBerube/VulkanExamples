@@ -1,5 +1,5 @@
-#ifndef VULKAN_SHADER_NETWORK_H_
-#define VULKAN_SHADER_NETWORK_H_
+#ifndef SIMPLE_COMPUTE_SHADER_TEST1_H_
+#define SIMPLE_COMPUTE_SHADER_TEST1_H_
 
 /*
 * Vulkan Example - Compute shader image processing
@@ -144,4 +144,4 @@ public:
     virtual void OnUpdateUIOverlay(vks::UIOverlay* overlay);
 };
 
-#endif //VULKAN_SHADER_NETWORK_H_
+#endif //SIMPLE_COMPUTE_SHADER_TEST1_H_
