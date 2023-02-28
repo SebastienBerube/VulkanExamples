@@ -9,11 +9,23 @@ namespace VulkanUtilities
 
     }
 
-    std::vector<SimpleComputeShader::BindingInfo> readBindingInfosFromExampleShaders (const std::string& shader)
+    std::vector<SimpleComputeShader::BindingInfo> readBindingInfosFromExampleShaders(const std::string& shader)
     {
         std::vector<SimpleComputeShader::BindingInfo> bindingInfos;
         PushBindind(bindingInfos, "inputImage", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM);
         PushBindind(bindingInfos, "resultImage", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM);
+        return bindingInfos;
+    }
+
+    std::vector<SimpleComputeShader::BindingInfo> readBindingInfosFromMultiKernelTestShader(const std::string& shader)
+    {
+        std::vector<SimpleComputeShader::BindingInfo> bindingInfos;
+        PushBindind(bindingInfos, "thresholdInput", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM);
+        PushBindind(bindingInfos, "thresholdResult", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM);
+        PushBindind(bindingInfos, "blurInput", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM);
+        PushBindind(bindingInfos, "blurResult", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM);
+        PushBindind(bindingInfos, "channelSwapInput", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM);
+        PushBindind(bindingInfos, "channelSwapResult", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM);
         return bindingInfos;
     }
 
@@ -116,7 +128,8 @@ namespace VulkanUtilities
 
     void SimpleComputeShader::PrepareDescriptorSets()
     {
-        _bindingInfos = readBindingInfosFromExampleShaders(_shaderName);
+        //_bindingInfos = readBindingInfosFromExampleShaders(_shaderName);
+        _bindingInfos = readBindingInfosFromMultiKernelTestShader(_shaderName);
 
         std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = getDescriptorSetLayout(_bindingInfos);
 
