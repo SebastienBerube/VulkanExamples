@@ -536,6 +536,8 @@ void SimpleComputeShaderTest2::buildComputeCommandBuffer()
     VK_CHECK_RESULT(vkBeginCommandBuffer(compute.commandBuffer, &cmdBufInfo));
 
     //for (auto& computePass : compute.passes)
+    
+
     {
         compute.pass.computeShader->Dispatch(compute.commandBuffer, 0, compute.pass.textureComputeTarget.width / 16, compute.pass.textureComputeTarget.height / 16, 1);
     }

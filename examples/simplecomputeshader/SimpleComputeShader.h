@@ -40,6 +40,7 @@ namespace VulkanUtilities
         //Owner
         std::vector<BindingInfo> _bindingInfos;
 
+        VkPushConstantRange _pushConstantRange;
         VkDescriptorSetLayout _descriptorSetLayout = VK_NULL_HANDLE;
         VkPipelineLayout _pipelineLayout = VK_NULL_HANDLE;
         VkDescriptorSet _descriptorSet = VK_NULL_HANDLE;

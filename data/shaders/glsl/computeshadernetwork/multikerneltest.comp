@@ -8,6 +8,11 @@ layout (binding = 3, rgba8) uniform image2D blurResult;
 layout (binding = 4, rgba8) uniform readonly image2D channelSwapInput;
 layout (binding = 5, rgba8) uniform image2D channelSwapResult;
 
+layout(push_constant) uniform PushConstants {
+    float myFloat;
+    int myInt;
+} pc;
+
 void threshold()
 {
     vec3 threshold = vec3(0.75,0.75,0.75);
@@ -50,7 +55,7 @@ void channelSwap()
 {
     vec3 rgb = imageLoad(channelSwapInput, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y)).rgb;
                     
-    vec4 res = vec4(
+    vec4 res = pc.myFloat*vec4(
         rgb.g,
         rgb.b,
         rgb.r,

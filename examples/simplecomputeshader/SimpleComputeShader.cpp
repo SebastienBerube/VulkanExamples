@@ -3,6 +3,12 @@
 
 namespace VulkanUtilities
 {
+    struct PushConstants
+    {
+        float myFloat;
+        int myInt;
+    };
+
     void PushBindind(std::vector<SimpleComputeShader::BindingInfo>& bindingInfos, const std::string& name, VkDescriptorType type, VkFormat format)
     {
         bindingInfos.push_back(SimpleComputeShader::BindingInfo{ name, type, format, (uint32_t)bindingInfos.size() });
@@ -138,6 +144,14 @@ namespace VulkanUtilities
 
         VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo =
             vks::initializers::pipelineLayoutCreateInfo(&_descriptorSetLayout, 1);
+        
+        //<ADDED S.B. Push_Contants>
+        _pushConstantRange.offset = 0;
+        _pushConstantRange.size = sizeof(PushConstants);
+        _pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+        pPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+        pPipelineLayoutCreateInfo.pPushConstantRanges = &_pushConstantRange;
+        //</ADDED S.B. Push_Contants>
 
         VK_CHECK_RESULT(vkCreatePipelineLayout(_framework.getVkDevice(), &pPipelineLayoutCreateInfo, nullptr, &_pipelineLayout));
 
@@ -185,8 +199,16 @@ namespace VulkanUtilities
         vkUpdateDescriptorSets(_framework.getVkDevice(), computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
     }
 
+
     void SimpleComputeShader::Dispatch(VkCommandBuffer commandBuffer, int kernelIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ)
     {
+        PushConstants pc;
+
+        pc.myFloat = 0.5;
+        pc.myInt = 3;
+
+        vkCmdPushConstants(commandBuffer, _pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstants), &pc);
+
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipelineLayout, 0, 1, &_descriptorSet, 0, 0);
         vkCmdDispatch(commandBuffer, threadGroupsX, threadGroupsY, threadGroupsZ);
