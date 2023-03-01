@@ -7,6 +7,7 @@
 */
 
 #include "SimpleComputeShaderTest1.h"
+#include "SimpleComputeShaderTest2.h"
 #include "VulkanFramework.h"
 #include "SimpleComputeShader.h"
 
@@ -28,7 +29,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
     };
 
     //TODO : Add switch here
-    vulkanExample = new SimpleComputeShaderTest1();
+    vulkanExample = new SimpleComputeShaderTest2();
     vulkanExample->initVulkan();
     vulkanExample->setupWindow(hInstance, WndProc);
     vulkanExample->prepare();

@@ -61,7 +61,7 @@ void channelSwap()
 
 void main()
 {
-  threshold();
-  //blur()
-  //channelSwap()
+  //threshold();
+  //blur();
+  channelSwap();
 }

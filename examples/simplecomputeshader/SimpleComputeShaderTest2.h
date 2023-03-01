@@ -1,5 +1,5 @@
-#ifndef SIMPLE_COMPUTE_SHADER_TEST1_H_
-#define SIMPLE_COMPUTE_SHADER_TEST1_H_
+#ifndef SIMPLE_COMPUTE_SHADER_TEST2_H_
+#define SIMPLE_COMPUTE_SHADER_TEST2_H_
 
 /*
 * Vulkan Example - Compute shader image processing
@@ -16,10 +16,8 @@
 #define ENABLE_VALIDATION false
 
 // Vertex layout for this example
-struct Vertex {
-    float pos[3];
-    float uv[2];
-};
+/*
+*/
 
 class SimpleComputeShaderTest2 : public VulkanExampleBase
 {
@@ -54,7 +52,7 @@ public:
         VkCommandPool commandPool;                    // Use a separate command pool (queue family may differ from the one used for graphics)
         VkCommandBuffer commandBuffer;                // Command buffer storing the dispatch commands and barriers
         VkSemaphore semaphore;                      // Execution dependency between compute & graphic submission
-        std::vector<ComputePass> passes;
+        ComputePass pass;
     } compute;
 
     VulkanUtilities::VulkanExampleFramework* framework;
@@ -122,9 +120,9 @@ public:
         setupVertexDescriptions();
         prepareUniformBuffers();
         
-        for(auto& computePass : compute.passes)
+        //for(auto& computePass : compute.passes)
         {
-            prepareTextureTarget(&computePass.textureComputeTarget, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
+            prepareTextureTarget(&compute.pass.textureComputeTarget, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
         }
         
         setupGraphicsDescriptorSetLayout();
@@ -144,4 +142,4 @@ public:
     virtual void OnUpdateUIOverlay(vks::UIOverlay* overlay);
 };
 
-#endif //SIMPLE_COMPUTE_SHADER_TEST1_H_
+#endif //SIMPLE_COMPUTE_SHADER_TEST2_H_

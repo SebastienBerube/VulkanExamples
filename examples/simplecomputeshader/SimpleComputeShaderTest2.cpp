@@ -10,6 +10,11 @@
 #include "VulkanFramework.h"
 #include "SimpleComputeShader.h"
 
+struct Vertex {
+    float pos[3];
+    float uv[2];
+};
+
 SimpleComputeShaderTest2::SimpleComputeShaderTest2() : VulkanExampleBase(ENABLE_VALIDATION)
 {
     title = "Simple Compute shader test 1";
@@ -28,10 +33,10 @@ SimpleComputeShaderTest2::~SimpleComputeShaderTest2()
     vkDestroySemaphore(device, graphics.semaphore, nullptr);
 
     // Compute
-    for (auto& computePass : compute.passes)
+    //for (auto& computePass : compute.passes)
     {
-        delete computePass.computeShader;
-        computePass.computeShader = nullptr;
+        delete compute.pass.computeShader;
+        compute.pass.computeShader = nullptr;
     }
 
     vkDestroySemaphore(device, compute.semaphore, nullptr);
@@ -43,16 +48,17 @@ SimpleComputeShaderTest2::~SimpleComputeShaderTest2()
 
     textureColorMap.destroy();
 
-    for (auto& computePass : compute.passes)
+    //for (auto& computePass : compute.passes)
     {
-        computePass.textureComputeTarget.destroy();
+        compute.pass.textureComputeTarget.destroy();
     }
 }
 
 vks::Texture2D& SimpleComputeShaderTest2::lastTextureComputeTarget()
 {
-    size_t lastComputePassIdx = compute.passes.size() - 1;
-    return compute.passes[lastComputePassIdx].textureComputeTarget;
+    //size_t lastComputePassIdx = compute.passes.size() - 1;
+    return compute.pass.textureComputeTarget;
+
 }
 
 void SimpleComputeShaderTest2::loadAssets()
@@ -62,16 +68,8 @@ void SimpleComputeShaderTest2::loadAssets()
 
 void SimpleComputeShaderTest2::createComputePasses()
 {
-    //framework = new VulkanUtilities::VulkanExampleFramework(*this, descriptorPool, pipelineCache);// (*this, descriptorPool, pipelineCache);
-
-    std::vector<std::string> shaderNames = { "multikerneltest"};
-
-    for (auto shaderName : shaderNames)
-    {
-        ComputePass computePass;
-        computePass.shaderName = shaderName;
-        compute.passes.push_back(computePass);
-    }
+    
+    compute.pass.shaderName = "multikerneltest";
 }
 
 // Setup vertices for a single uv-mapped quad
@@ -349,11 +347,12 @@ void SimpleComputeShaderTest2::setupDescriptorPool()
         vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2)
     };
 
-    for (auto& computePass : compute.passes)
+    //S.B. TODO : Here, use information from shader to properly compute pool size.
+    //for (auto& computePass : compute.passes)
     {
         poolSizes.push_back(
             // Compute pipelines uses a storage image for image reads and writes
-            vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2)
+            vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 6)
         );
     }
 
@@ -406,22 +405,11 @@ void SimpleComputeShaderTest2::prepareCompute()
     vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.compute, 0, &compute.queue);
 
     VkDescriptorImageInfo srcImageDescriptor = textureColorMap.descriptor;
-    for (auto& computePass : compute.passes)
-    {
-        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName);
-        computePass.computeShader->SetTexture(0, "inputImage", srcImageDescriptor);
-        computePass.computeShader->SetTexture(0, "resultImage", computePass.textureComputeTarget.descriptor);
-
-        //Input texture is output of the previous compute pass
-        srcImageDescriptor = computePass.textureComputeTarget.descriptor;
-    }
-
-    // One pipeline for each effect
-    for (auto& computePass : compute.passes)
-    {
-        //TODO : Test pipeline creation in SimpleComputeShader constructor
-        computePass.computeShader->CreatePipeline();
-    }
+    
+    compute.pass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, compute.pass.shaderName);
+    compute.pass.computeShader->SetTexture(0, "channelSwapInput", srcImageDescriptor);
+    compute.pass.computeShader->SetTexture(0, "channelSwapResult", compute.pass.textureComputeTarget.descriptor);
+    compute.pass.computeShader->CreatePipeline();
 
     // Separate command pool as queue family for compute may be different than graphics
     VkCommandPoolCreateInfo cmdPoolInfo = {};
@@ -530,7 +518,7 @@ void SimpleComputeShaderTest2::buildCommandBuffers()
             clearRange.levelCount = VK_REMAINING_MIP_LEVELS;
             clearRange.baseArrayLayer = 0;
             clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-            vkCmdClearColorImage(drawCmdBuffers[i], compute.passes[0].textureComputeTarget.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
+            vkCmdClearColorImage(drawCmdBuffers[i], compute.pass.textureComputeTarget.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
         }
 
         VK_CHECK_RESULT(vkEndCommandBuffer(drawCmdBuffers[i]));
@@ -547,9 +535,9 @@ void SimpleComputeShaderTest2::buildComputeCommandBuffer()
 
     VK_CHECK_RESULT(vkBeginCommandBuffer(compute.commandBuffer, &cmdBufInfo));
 
-    for (auto& computePass : compute.passes)
+    //for (auto& computePass : compute.passes)
     {
-        computePass.computeShader->Dispatch(compute.commandBuffer, 0, computePass.textureComputeTarget.width / 16, computePass.textureComputeTarget.height / 16, 1);
+        compute.pass.computeShader->Dispatch(compute.commandBuffer, 0, compute.pass.textureComputeTarget.width / 16, compute.pass.textureComputeTarget.height / 16, 1);
     }
     
     vkEndCommandBuffer(compute.commandBuffer);
