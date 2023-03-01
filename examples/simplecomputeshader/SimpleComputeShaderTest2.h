@@ -43,7 +43,9 @@ public:
     struct ComputePass {
         VulkanUtilities::SimpleComputeShader* computeShader;
         std::string shaderName;
-        vks::Texture2D textureComputeTarget;
+        vks::Texture2D thresholdResult;
+        vks::Texture2D blurResult;
+        vks::Texture2D channelSwapResult;
     };
 
     // Resources for the compute part of the example
@@ -122,7 +124,10 @@ public:
         
         //for(auto& computePass : compute.passes)
         {
-            prepareTextureTarget(&compute.pass.textureComputeTarget, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
+            prepareTextureTarget(&compute.pass.thresholdResult, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
+            prepareTextureTarget(&compute.pass.blurResult, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
+            prepareTextureTarget(&compute.pass.channelSwapResult, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
+            
         }
         
         setupGraphicsDescriptorSetLayout();

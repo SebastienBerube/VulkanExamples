@@ -5,8 +5,7 @@ namespace VulkanUtilities
 {
     struct PushConstants
     {
-        float myFloat;
-        int myInt;
+        int kernelIndex;
     };
 
     void PushBindind(std::vector<SimpleComputeShader::BindingInfo>& bindingInfos, const std::string& name, VkDescriptorType type, VkFormat format)
@@ -204,11 +203,9 @@ namespace VulkanUtilities
     {
         PushConstants pc;
 
-        pc.myFloat = 0.5;
-        pc.myInt = 3;
+        pc.kernelIndex = kernelIndex;
 
         vkCmdPushConstants(commandBuffer, _pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstants), &pc);
-
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipelineLayout, 0, 1, &_descriptorSet, 0, 0);
         vkCmdDispatch(commandBuffer, threadGroupsX, threadGroupsY, threadGroupsZ);
