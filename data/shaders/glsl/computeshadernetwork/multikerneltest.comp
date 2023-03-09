@@ -10,18 +10,30 @@ layout (binding = 5, rgba8) uniform image2D channelSwapResult;
 
 layout(push_constant) uniform PushConstants {
     int kernelIndex;
+    int frameIndex;
+    float alpha;
 } pc;
+
+void clearBlurResult()
+{
+    imageStore(blurResult, ivec2(gl_GlobalInvocationID.xy), vec4(1,0,0,1));
+}
 
 void threshold()
 {
     vec3 threshold = vec3(0.75,0.75,0.75);
     
     vec3 rgb = imageLoad(thresholdInput, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y)).rgb;
-                            
-    vec4 res = vec4(rgb.r > threshold.r ? 1.0 : 0.0,
-                    rgb.g > threshold.g ? 1.0 : 0.0,
-                    rgb.b > threshold.b ? 1.0 : 0.0,
-                    1.0);
+    
+    vec4 res = fract((pc.frameIndex%1000)/1000.0)*
+                 vec4(rgb.r > threshold.r ? 1.0 : 0.0,
+                      rgb.g > threshold.g ? 1.0 : 0.0,
+                      rgb.b > threshold.b ? 1.0 : 0.0,
+                      1.0);
+    if(((gl_GlobalInvocationID.x+gl_GlobalInvocationID.y+pc.frameIndex)/50)%2==1)
+    {
+      res = vec4(0,0,0,1);
+    }
 
     imageStore(thresholdResult, ivec2(gl_GlobalInvocationID.xy), res);
 }
@@ -31,9 +43,7 @@ void blur()
     vec3 sum = vec3(0,0,0);
     float total_weight = 0.0;
 
-    const int RANGE = 8;
-    //uint xMin = max(0, gl_GlobalInvocationID.x-RANGE);
-    //uint xMax = min(0, gl_GlobalInvocationID.x-RANGE);
+    const int RANGE = 20;
     
     for(int i=-RANGE; i<=RANGE; ++i)
     {
@@ -66,9 +76,16 @@ void channelSwap()
 void main()
 {
   if(pc.kernelIndex==0)
+  {
     threshold();
+    clearBlurResult();
+  }
   else if(pc.kernelIndex==1)
+  {
     blur();
-  else  
+  }
+  else if(pc.kernelIndex==2)
+  {
     channelSwap();
+  }
 }

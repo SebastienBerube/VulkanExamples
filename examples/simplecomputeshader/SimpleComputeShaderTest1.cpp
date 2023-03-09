@@ -549,7 +549,7 @@ void SimpleComputeShaderTest1::buildComputeCommandBuffer()
 
     for (auto& computePass : compute.passes)
     {
-        computePass.computeShader->Dispatch(compute.commandBuffer, 0, computePass.textureComputeTarget.width / 16, computePass.textureComputeTarget.height / 16, 1);
+        computePass.computeShader->Dispatch(compute.commandBuffer, 0, 0, computePass.textureComputeTarget.width / 16, computePass.textureComputeTarget.height / 16, 1);
     }
     
     vkEndCommandBuffer(compute.commandBuffer);

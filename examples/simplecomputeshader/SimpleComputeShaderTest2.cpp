@@ -516,6 +516,7 @@ void SimpleComputeShaderTest2::buildCommandBuffers()
         vkCmdEndRenderPass(drawCmdBuffers[i]);
 
         {
+            /*
             VkClearColorValue clearColor0 = { 1.0f, 0.0f, 0.0f, 1.0f };
 
             VkImageSubresourceRange clearRange;
@@ -525,11 +526,45 @@ void SimpleComputeShaderTest2::buildCommandBuffers()
             clearRange.baseArrayLayer = 0;
             clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
             vkCmdClearColorImage(drawCmdBuffers[i], compute.pass.thresholdResult.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
+            */
         }
 
         VK_CHECK_RESULT(vkEndCommandBuffer(drawCmdBuffers[i]));
     }
 
+}
+
+void SimpleComputeShaderTest2::refreshCommandBuffer()
+{
+    VkCommandBufferBeginInfo cmdBufInfo = vks::initializers::commandBufferBeginInfo();
+
+    VK_CHECK_RESULT(vkBeginCommandBuffer(compute.commandBuffer, &cmdBufInfo));
+
+    //for (auto& computePass : compute.passes)
+
+
+    {
+        VkClearColorValue clearColor0 = { 1.0f, 0.0f, 0.0f, 1.0f };
+
+        VkImageSubresourceRange clearRange;
+        clearRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        clearRange.baseMipLevel = 0;
+        clearRange.levelCount = VK_REMAINING_MIP_LEVELS;
+        clearRange.baseArrayLayer = 0;
+        clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+        vkCmdClearColorImage(compute.commandBuffer, compute.pass.thresholdResult.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
+
+        
+        compute.pass.computeShader->DispatchAllKernels_Test(compute.commandBuffer, this->frameCounter, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
+
+        /*
+        compute.pass.computeShader->Dispatch(compute.commandBuffer, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
+        compute.pass.computeShader->Dispatch(compute.commandBuffer, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
+        compute.pass.computeShader->Dispatch(compute.commandBuffer, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
+        */
+    }
+
+    vkEndCommandBuffer(compute.commandBuffer);
 }
 
 void SimpleComputeShaderTest2::buildComputeCommandBuffer()
@@ -545,9 +580,23 @@ void SimpleComputeShaderTest2::buildComputeCommandBuffer()
     
 
     {
-        compute.pass.computeShader->Dispatch(compute.commandBuffer, 0, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
-        compute.pass.computeShader->Dispatch(compute.commandBuffer, 1, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
-        compute.pass.computeShader->Dispatch(compute.commandBuffer, 2, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
+        VkClearColorValue clearColor0 = { 1.0f, 0.0f, 0.0f, 1.0f };
+
+        VkImageSubresourceRange clearRange;
+        clearRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        clearRange.baseMipLevel = 0;
+        clearRange.levelCount = VK_REMAINING_MIP_LEVELS;
+        clearRange.baseArrayLayer = 0;
+        clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+        vkCmdClearColorImage(compute.commandBuffer, compute.pass.thresholdResult.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
+        
+        compute.pass.computeShader->DispatchAllKernels_Test(compute.commandBuffer, 0, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
+
+        /*
+        compute.pass.computeShader->Dispatch(compute.commandBuffer, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
+        compute.pass.computeShader->Dispatch(compute.commandBuffer, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
+        compute.pass.computeShader->Dispatch(compute.commandBuffer, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
+        */
     }
     
     vkEndCommandBuffer(compute.commandBuffer);
@@ -557,6 +606,8 @@ void SimpleComputeShaderTest2::draw()
 {
     // Wait for rendering finished
     VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
+    refreshCommandBuffer();
 
     // Submit compute commands
     VkSubmitInfo computeSubmitInfo = vks::initializers::submitInfo();
@@ -592,6 +643,7 @@ void SimpleComputeShaderTest2::render()
 {
     if (!prepared)
         return;
+    buildComputeCommandBuffer();
     draw();
     if (camera.updated) {
         updateUniformBuffers();

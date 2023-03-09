@@ -9,28 +9,55 @@
 
 namespace VulkanUtilities
 {
+    enum UniformType
+    {
+        FLOAT = 0,
+        INT = 1,
+        UNSUPPORTED = 2
+    };
+
+    struct UniformInfo
+    {
+        std::string name;
+        UniformType type;
+        int order;
+        int byteOffset;
+    };
+
+    struct BindingInfo
+    {
+        std::string name;
+        VkDescriptorType type;
+        VkFormat format;
+        uint32_t bindingIndex;
+    };
 
     class SimpleComputeShader
     {
     public:
-        struct BindingInfo
-        {
-            std::string name;
-            VkDescriptorType type;
-            VkFormat format;
-            uint32_t bindingIndex;
-        };
 
         SimpleComputeShader(VulkanFramework& framework, const std::string& shader);
         ~SimpleComputeShader();
 
+        struct UniformDescriptor
+        {
+
+        };
+
         void SetFloat(const std::string& name, float val);
         void SetInt(const std::string& name, int val);
         void SetTexture(int kernelIndex, const std::string& name, VkDescriptorImageInfo& textureDescriptor);
-        void Dispatch(VkCommandBuffer commandBuffer, int kernelIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ);
+        void Dispatch(VkCommandBuffer commandBuffer, int kernelIndex, int frameIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ);
+        void DispatchAllKernels_Test(VkCommandBuffer commandBuffer, int frameIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ);
         void CreatePipeline();
 
     private:
+        struct PushConstants
+        {
+            int kernelIndex;
+            int frameIndex;
+        } pc;
+
         void PrepareDescriptorSets();
 
         //Not owner
@@ -39,6 +66,8 @@ namespace VulkanUtilities
 
         //Owner
         std::vector<BindingInfo> _bindingInfos;
+        std::vector<UniformInfo> _uniformInfos;
+        std::vector<unsigned char> _uniformData;
 
         VkPushConstantRange _pushConstantRange;
         VkDescriptorSetLayout _descriptorSetLayout = VK_NULL_HANDLE;

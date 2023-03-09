@@ -111,6 +111,8 @@ public:
 
     void buildComputeCommandBuffer();
 
+    void refreshCommandBuffer();
+
     void draw();
 
     void prepare()
