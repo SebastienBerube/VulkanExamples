@@ -13,20 +13,16 @@ namespace VulkanUtilities
     class SimpleComputeShader
     {
     public:
+        
 
         SimpleComputeShader(VulkanFramework& framework, const std::string& shader);
         ~SimpleComputeShader();
 
-        struct UniformDescriptor
-        {
-
-        };
-
         void SetFloat(const std::string& name, float val);
         void SetInt(const std::string& name, int val);
-        void SetTexture(int kernelIndex, const std::string& name, VkDescriptorImageInfo& textureDescriptor);
+        void SetTexture(int kernelIndex, const std::string& name, ImageInfo imageInfo);
         void Dispatch(VkCommandBuffer commandBuffer, int kernelIndex, int frameIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ);
-        void DispatchAllKernels_Test(VkCommandBuffer commandBuffer, int frameIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ);
+        void DispatchAllKernels_Test(VkCommandBuffer commandBuffer, int frameIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ, bool imageBarrier);
         void CreatePipeline();
 
     private:

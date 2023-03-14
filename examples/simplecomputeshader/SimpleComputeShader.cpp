@@ -7,6 +7,37 @@
 
 namespace VulkanUtilities
 {
+    void ImageBarrier(VkCommandBuffer commandBuffer, VkImage image)
+    {
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageMemoryBarrier.html
+        VkImageMemoryBarrier imageMemoryBarrier = {};
+        imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        // We won't be changing the layout of the image
+        // Note: If the synchronization2 feature is enabled, when the old and new layout are equal,
+        // the layout values are ignored - data is preserved no matter what values are specified,
+        // or what layout the image is currently in.
+        imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+        imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+        
+        imageMemoryBarrier.image = image;
+
+        imageMemoryBarrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+        vkCmdPipelineBarrier(
+            commandBuffer,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, //srcStageMask
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, //dstStageMask
+            VK_FLAGS_NONE, //VkDependencyFlags: none = normal barrier, entire image
+            0, nullptr, //memory Barriers
+            0, nullptr, //buffer Memory Barrier
+            1, &imageMemoryBarrier);
+    }
+
+
     std::vector<VkDescriptorSetLayoutBinding> getDescriptorSetLayout(const std::vector<BindingInfo>& bindingInfos)
     {
         std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings;
@@ -26,12 +57,8 @@ namespace VulkanUtilities
         _shaderName = shader;
         int totalSize = GetTotalSize(_uniformInfos);
         _uniformData.resize(totalSize, (unsigned char)0);
-        /*SetInt("kernelIndex", 255);
-        SetInt("frameIndex", 256*255+255);
-        SetInt("frameIndex", 256 * 255 + 255);*/
 
         PrepareDescriptorSets();
-        //CreatePipeline(); TODO : Test this here, during construction.
     }
 
     SimpleComputeShader::~SimpleComputeShader()
@@ -96,18 +123,19 @@ namespace VulkanUtilities
         SetValue(_uniformInfos, _uniformData, name, &val);
     }
 
-    void SimpleComputeShader::SetTexture(int kernelIndex, const std::string& nameID, VkDescriptorImageInfo& textureDescriptor)
+    void SimpleComputeShader::SetTexture(int kernelIndex, const std::string& nameID, ImageInfo imageInfo)
     {
         auto it = std::find_if(_bindingInfos.begin(), _bindingInfos.end(), [&nameID](const BindingInfo& item)
             {
                 return item.name == nameID;
             });
 
-        BindingInfo bindingInfo = *it;
+        BindingInfo& bindingInfo = *it;
+        bindingInfo.resourceInfo = imageInfo;
 
         //TODO : Log error here.
         std::vector<VkWriteDescriptorSet> computeWriteDescriptorSets = {
-            vks::initializers::writeDescriptorSet(_descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, bindingInfo.bindingIndex, &textureDescriptor)
+            vks::initializers::writeDescriptorSet(_descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, bindingInfo.bindingIndex, &imageInfo.descriptor)
         };
         vkUpdateDescriptorSets(_framework.getVkDevice(), computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
     }
@@ -125,7 +153,9 @@ namespace VulkanUtilities
         vkCmdDispatch(commandBuffer, threadGroupsX, threadGroupsY, threadGroupsZ);
     }
 
-    void SimpleComputeShader::DispatchAllKernels_Test(VkCommandBuffer commandBuffer, int frameIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ)
+    
+
+    void SimpleComputeShader::DispatchAllKernels_Test(VkCommandBuffer commandBuffer, int frameIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ, bool imageBarrier)
     {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipelineLayout, 0, 1, &_descriptorSet, 0, 0);
@@ -139,10 +169,28 @@ namespace VulkanUtilities
 
         vkCmdDispatch(commandBuffer, threadGroupsX, threadGroupsY, threadGroupsZ);
 
+        if (imageBarrier)
+        {
+            auto it = std::find_if(_bindingInfos.begin(), _bindingInfos.end(), [](const BindingInfo& item)
+                {
+                    return item.name == "thresholdResult";
+                });
+            ImageBarrier(commandBuffer, it->resourceInfo.image);
+        }
+
         SetInt("kernelIndex", 1);
         vkCmdPushConstants(commandBuffer, _pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, GetTotalSize(_uniformInfos), &_uniformData[0]);
 
         vkCmdDispatch(commandBuffer, threadGroupsX, threadGroupsY, threadGroupsZ);
+
+        if (imageBarrier)
+        {
+            auto it = std::find_if(_bindingInfos.begin(), _bindingInfos.end(), [](const BindingInfo& item)
+                {
+                    return item.name == "blurResult";
+                });
+            ImageBarrier(commandBuffer, it->resourceInfo.image);
+        }
 
         SetInt("kernelIndex", 2);
         vkCmdPushConstants(commandBuffer, _pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, GetTotalSize(_uniformInfos), &_uniformData[0]);
@@ -150,5 +198,3 @@ namespace VulkanUtilities
         vkCmdDispatch(commandBuffer, threadGroupsX, threadGroupsY, threadGroupsZ);
     }
 }
-
-

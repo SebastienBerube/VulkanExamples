@@ -24,12 +24,34 @@ namespace VulkanUtilities
         int byteOffset;
     };
 
+    //This is the minimum Texture information required for:
+    // 1) calling writeDescriptorSet (needs VkDescriptorImageInfo)
+    // 2) Creating image barriers (needs VkImage)
+    struct ImageInfo
+    {
+        ImageInfo(const vks::Texture& texture)
+        {
+            descriptor = texture.descriptor;
+            image = texture.image;
+        }
+
+        // Default constructor
+        ImageInfo() = default;
+
+        //operator(Texture)
+
+        VkDescriptorImageInfo descriptor;
+        VkImage               image;
+    };
+
+    //This only supports Textures for now
     struct BindingInfo
     {
         std::string name;
         VkDescriptorType type;
         VkFormat format;
         uint32_t bindingIndex;
+        ImageInfo resourceInfo; //null until it is set.
     };
 
     std::vector<BindingInfo> ParseShaderBindings(const std::string& shader);

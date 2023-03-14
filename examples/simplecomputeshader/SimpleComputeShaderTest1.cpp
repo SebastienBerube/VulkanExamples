@@ -405,15 +405,15 @@ void SimpleComputeShaderTest1::prepareCompute()
     // Get a compute queue from the device
     vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.compute, 0, &compute.queue);
 
-    VkDescriptorImageInfo srcImageDescriptor = textureColorMap.descriptor;
+    vks::Texture& srcImage = textureColorMap;
     for (auto& computePass : compute.passes)
     {
         computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName);
-        computePass.computeShader->SetTexture(0, "inputImage", srcImageDescriptor);
-        computePass.computeShader->SetTexture(0, "resultImage", computePass.textureComputeTarget.descriptor);
+        computePass.computeShader->SetTexture(0, "inputImage", srcImage);
+        computePass.computeShader->SetTexture(0, "resultImage", computePass.textureComputeTarget);
 
         //Input texture is output of the previous compute pass
-        srcImageDescriptor = computePass.textureComputeTarget.descriptor;
+        srcImage = computePass.textureComputeTarget;
     }
 
     // One pipeline for each effect
@@ -613,5 +613,6 @@ void SimpleComputeShaderTest1::OnUpdateUIOverlay(vks::UIOverlay *overlay)
             buildComputeCommandBuffer();
         }*/
         overlay->checkBox("Semaphore", &computeSemaphore);
+        overlay->checkBox("ImageBarrier", &imageBarrier);
     }
 }

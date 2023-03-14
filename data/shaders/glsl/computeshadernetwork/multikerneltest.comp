@@ -16,7 +16,7 @@ layout(push_constant) uniform PushConstants {
 
 void clearBlurResult()
 {
-    imageStore(blurResult, ivec2(gl_GlobalInvocationID.xy), vec4(1,0,0,1));
+    imageStore(blurResult, ivec2(gl_GlobalInvocationID.xy), vec4(0,1,0,1));
 }
 
 void threshold()
@@ -25,15 +25,15 @@ void threshold()
     
     vec3 rgb = imageLoad(thresholdInput, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y)).rgb;
     
-    vec4 res = fract((pc.frameIndex%1000)/1000.0)*
+    vec4 res = //fract((pc.frameIndex%1000)/1000.0)*
                  vec4(rgb.r > threshold.r ? 1.0 : 0.0,
                       rgb.g > threshold.g ? 1.0 : 0.0,
                       rgb.b > threshold.b ? 1.0 : 0.0,
                       1.0);
-    if(((gl_GlobalInvocationID.x+gl_GlobalInvocationID.y+pc.frameIndex)/50)%2==1)
+    /*if(((gl_GlobalInvocationID.x+gl_GlobalInvocationID.y+pc.frameIndex)/50)%2==1)
     {
       res = vec4(0,0,0,1);
-    }
+    }*/
 
     imageStore(thresholdResult, ivec2(gl_GlobalInvocationID.xy), res);
 }
@@ -43,7 +43,7 @@ void blur()
     vec3 sum = vec3(0,0,0);
     float total_weight = 0.0;
 
-    const int RANGE = 20;
+    const int RANGE = 15;
     
     for(int i=-RANGE; i<=RANGE; ++i)
     {
@@ -86,6 +86,7 @@ void main()
   }
   else if(pc.kernelIndex==2)
   {
+    //blur();
     channelSwap();
   }
 }

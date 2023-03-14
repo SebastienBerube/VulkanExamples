@@ -406,15 +406,13 @@ void SimpleComputeShaderTest2::prepareCompute()
     // Get a compute queue from the device
     vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.compute, 0, &compute.queue);
 
-    VkDescriptorImageInfo srcImageDescriptor = textureColorMap.descriptor;
-    
     compute.pass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, compute.pass.shaderName);
-    compute.pass.computeShader->SetTexture(0, "thresholdInput",    srcImageDescriptor);
-    compute.pass.computeShader->SetTexture(0, "thresholdResult",   compute.pass.thresholdResult.descriptor);
-    compute.pass.computeShader->SetTexture(1, "blurInput",         compute.pass.thresholdResult.descriptor);
-    compute.pass.computeShader->SetTexture(1, "blurResult",        compute.pass.blurResult.descriptor);
-    compute.pass.computeShader->SetTexture(2, "channelSwapInput",  compute.pass.blurResult.descriptor);
-    compute.pass.computeShader->SetTexture(2, "channelSwapResult", compute.pass.channelSwapResult.descriptor);
+    compute.pass.computeShader->SetTexture(0, "thresholdInput", textureColorMap);
+    compute.pass.computeShader->SetTexture(0, "thresholdResult",   compute.pass.thresholdResult);
+    compute.pass.computeShader->SetTexture(1, "blurInput",         compute.pass.thresholdResult);
+    compute.pass.computeShader->SetTexture(1, "blurResult",        compute.pass.blurResult);
+    compute.pass.computeShader->SetTexture(2, "channelSwapInput",  compute.pass.blurResult);
+    compute.pass.computeShader->SetTexture(2, "channelSwapResult", compute.pass.channelSwapResult);
     compute.pass.computeShader->CreatePipeline();
 
     // Separate command pool as queue family for compute may be different than graphics
@@ -555,7 +553,13 @@ void SimpleComputeShaderTest2::refreshCommandBuffer()
         vkCmdClearColorImage(compute.commandBuffer, compute.pass.thresholdResult.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
 
         
-        compute.pass.computeShader->DispatchAllKernels_Test(compute.commandBuffer, this->frameCounter, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
+        compute.pass.computeShader->DispatchAllKernels_Test(
+            compute.commandBuffer, 
+            this->frameCounter, 
+            compute.pass.channelSwapResult.width / 16, 
+            compute.pass.channelSwapResult.height / 16, 
+            1,
+            imageBarrier);
 
         /*
         compute.pass.computeShader->Dispatch(compute.commandBuffer, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
@@ -590,7 +594,7 @@ void SimpleComputeShaderTest2::buildComputeCommandBuffer()
         clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
         vkCmdClearColorImage(compute.commandBuffer, compute.pass.thresholdResult.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
         
-        compute.pass.computeShader->DispatchAllKernels_Test(compute.commandBuffer, 0, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
+        compute.pass.computeShader->DispatchAllKernels_Test(compute.commandBuffer, 0, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1, imageBarrier);
 
         /*
         compute.pass.computeShader->Dispatch(compute.commandBuffer, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
@@ -663,5 +667,6 @@ void SimpleComputeShaderTest2::OnUpdateUIOverlay(vks::UIOverlay *overlay)
             buildComputeCommandBuffer();
         }*/
         overlay->checkBox("Semaphore", &computeSemaphore);
+        overlay->checkBox("Image Barrier", &imageBarrier);
     }
 }

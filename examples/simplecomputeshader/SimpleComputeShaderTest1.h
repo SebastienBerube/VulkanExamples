@@ -63,6 +63,7 @@ public:
     vks::Buffer indexBuffer;
     uint32_t indexCount;
     bool computeSemaphore = true;
+    bool imageBarrier = true;
 
     vks::Buffer uniformBufferVS;
 
