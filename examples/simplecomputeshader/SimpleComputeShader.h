@@ -1,37 +1,15 @@
-#ifndef UNITY_COMPUTE_SHADER_H_
-#define UNITY_COMPUTE_SHADER_H_
+#ifndef SIMPLE_COMPUTE_SHADER_H_
+#define SIMPLE_COMPUTE_SHADER_H_
 
 #include "vulkan/vulkan.h"
 #include "VulkanTexture.h"
 #include "VulkanFramework.h"
+#include "ShaderParser.h"
 #include <string>
 #include <vector>
 
 namespace VulkanUtilities
 {
-    enum UniformType
-    {
-        FLOAT = 0,
-        INT = 1,
-        UNSUPPORTED = 2
-    };
-
-    struct UniformInfo
-    {
-        std::string name;
-        UniformType type;
-        int order;
-        int byteOffset;
-    };
-
-    struct BindingInfo
-    {
-        std::string name;
-        VkDescriptorType type;
-        VkFormat format;
-        uint32_t bindingIndex;
-    };
-
     class SimpleComputeShader
     {
     public:
@@ -78,4 +56,4 @@ namespace VulkanUtilities
 }
 
 
-#endif //UNITY_COMPUTE_SHADER_H_
+#endif //SIMPLE_COMPUTE_SHADER_H_
