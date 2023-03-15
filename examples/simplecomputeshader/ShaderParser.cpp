@@ -29,7 +29,8 @@ namespace VulkanUtilities
 
     int GetTotalSize(std::vector<UniformInfo>& uniforms)
     {
-        return uniforms.back().byteOffset + GetTypeSize(uniforms.back().type);
+        return uniforms.size() > 0 ? uniforms.back().byteOffset + GetTypeSize(uniforms.back().type)
+                                   : 0;
     }
 
     void SetValue(const std::vector<UniformInfo>& uniformInfos, std::vector<unsigned char>& uniformData, std::string name, void* src)
@@ -47,14 +48,21 @@ namespace VulkanUtilities
 
     std::vector<UniformInfo> ParseShaderUniforms(const std::string& shader)
     {
-        std::string code = R"(
+        //Temporary, until a better parser is used to perform the actual task.
+        std::string testCode;
+
+        if (shader.find("multikerneltest") != std::string::npos)
+        {
+            testCode = R"(
                 int kernelIndex;
                 int frameIndex;
                 float alpha;
 
             )";
-
-        std::string code1 = R"(
+        }
+        else if (shader.find("FluidSimCommon.compute") != std::string::npos)
+        {
+            testCode = R"(
             // StableFluids - A GPU implementation of Jos Stam's Stable Fluids on Unity
             // https://github.com/keijiro/StableFluids
 
@@ -123,26 +131,35 @@ namespace VulkanUtilities
             void Vorticity2(uint2 tid : SV_DispatchThreadID)
             {
             }"; )";
+        }
+        else
+        {
+            testCode = R"(
+                #version 450
+
+                layout (local_size_x = 16, local_size_y = 16) in;
+                layout (binding = 0, rgba8) uniform readonly image2D inputImage;
+                layout (binding = 1, rgba8) uniform image2D resultImage;
+            )";
+        }
 
         std::vector<UniformInfo> globalVars;
 
         // Regular expression to match global variable declarations
-        //std::regex regex("(?:^|\\n)\\s*(?:extern\\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_<>\\[\\]\\s*]*)\\s*(?:=\\s*[^;]+)?;", std::regex::multiline);
         std::regex regex("(?:^|\\n)\\s*(?:extern\\s+)?([a-zA-Z_][a-zA-Z0-9_<>]*)\\s+([a-zA-Z_][a-zA-Z0-9_\\[\\]\\s*]*)\\s*(?:=\\s*[^;]+)?;");
         /*
-        The regular expression used to match global variable declarations is (?:^|\\n)\\s*(?:extern\\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_<>\\[\\]\\s*]*)\\s*(?:=\\s*[^;]+)?;. Here's a breakdown of the different parts:
+            The regular expression used to match global variable declarations is (?:^|\\n)\\s*(?:extern\\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_<>\\[\\]\\s*]*)\\s*(?:=\\s*[^;]+)?;. Here's a breakdown of the different parts:
 
-    (?:^|\\n) matches the beginning of the line or a newline character
-    \\s* matches any number of whitespace characters
-    (?:extern\\s+)? optionally matches the keyword "extern" followed by whitespace
-    ([a-zA-Z_][a-zA-Z0-9_]*) matches the variable name, which must start with a letter or underscore and can be followed by any combination of letters, underscores, and digits
-    \\s+ matches one or more whitespace characters
-    ([a-zA-Z_][a-zA-Z0-9_<>\\[\\]\\s*]*) matches the variable type, which can include templates, arrays, and pointers, as well as whitespace
-    \\s*(?:=\\s*[^;]+)? optionally matches an initializer expression, which is any sequence of characters that doesn't contain a semicolon, preceded by an equals sign and any amount of whitespace
-    ;
-    */
-    // Iterate over all matches
-        std::sregex_iterator it(code.begin(), code.end(), regex);
+            (?:^|\\n) matches the beginning of the line or a newline character
+            \\s* matches any number of whitespace characters
+            (?:extern\\s+)? optionally matches the keyword "extern" followed by whitespace
+            ([a-zA-Z_][a-zA-Z0-9_]*) matches the variable name, which must start with a letter or underscore and can be followed by any combination of letters, underscores, and digits
+            \\s+ matches one or more whitespace characters
+            ([a-zA-Z_][a-zA-Z0-9_<>\\[\\]\\s*]*) matches the variable type, which can include templates, arrays, and pointers, as well as whitespace
+            \\s*(?:=\\s*[^;]+)? optionally matches an initializer expression, which is any sequence of characters that doesn't contain a semicolon, preceded by an equals sign and any amount of whitespace
+        */
+        // Iterate over all matches
+        std::sregex_iterator it(testCode.begin(), testCode.end(), regex);
         std::sregex_iterator end;
         int order = 0;
         int byteOffset = 0;
@@ -260,11 +277,11 @@ namespace VulkanUtilities
 
     std::vector<BindingInfo> ParseShaderBindings(const std::string& shader)
     {
-        if (shader.find("multikerneltest.comp"))
+        if (shader.find("multikerneltest") != std::string::npos)
         {
             return ReadBindingInfosFromMultiKernelTestShader(shader);
         }
-        else if (shader.find("FluidSimCommon.compute"))
+        else if (shader.find("FluidSimCommon.compute") != std::string::npos)
         {
             return ReadBindingInfosFromUnityShader(shader);
         }

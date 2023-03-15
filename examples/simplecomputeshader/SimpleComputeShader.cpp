@@ -29,8 +29,8 @@ namespace VulkanUtilities
 
         vkCmdPipelineBarrier(
             commandBuffer,
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, //srcStageMask
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, //dstStageMask
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,//VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, //srcStageMask
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,//VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, //dstStageMask
             VK_FLAGS_NONE, //VkDependencyFlags: none = normal barrier, entire image
             0, nullptr, //memory Barriers
             0, nullptr, //buffer Memory Barrier
@@ -56,8 +56,11 @@ namespace VulkanUtilities
         _uniformInfos = ParseShaderUniforms(shader);
         _shaderName = shader;
         int totalSize = GetTotalSize(_uniformInfos);
-        _uniformData.resize(totalSize, (unsigned char)0);
-
+        if (totalSize > 0)
+        {
+            _uniformData.resize(totalSize, (unsigned char)0);
+        }
+        
         PrepareDescriptorSets();
     }
 
@@ -140,15 +143,20 @@ namespace VulkanUtilities
         vkUpdateDescriptorSets(_framework.getVkDevice(), computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
     }
 
+    void SimpleComputeShader::UpdateUniforms(VkCommandBuffer commandBuffer)
+    {
+        if (_uniformInfos.size() > 0)
+        {
+            vkCmdPushConstants(commandBuffer, _pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, GetTotalSize(_uniformInfos), &_uniformData[0]);
+        }
+    }
 
     void SimpleComputeShader::Dispatch(VkCommandBuffer commandBuffer, int kernelIndex, int frameIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ)
     {
-        pc.kernelIndex = kernelIndex;
-        pc.frameIndex += 1;
-        
-        vkCmdPushConstants(commandBuffer, _pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstants), &pc);
-
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipeline);
+
+        //ANSME : Should this be called before or after bind pipeline?
+        UpdateUniforms(commandBuffer);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipelineLayout, 0, 1, &_descriptorSet, 0, 0);
         vkCmdDispatch(commandBuffer, threadGroupsX, threadGroupsY, threadGroupsZ);
     }
@@ -160,13 +168,10 @@ namespace VulkanUtilities
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipeline);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipelineLayout, 0, 1, &_descriptorSet, 0, 0);
         
-        pc.frameIndex += 1;
-        //vkCmdPushConstants(commandBuffer, _pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, GetTotalSize(_uniformInfos), &_uniformData[0]);
         SetFloat("alpha", 0.663);
-        SetInt("frameIndex", pc.frameIndex);
+        SetInt("frameIndex", frameIndex);
         SetInt("kernelIndex", 0);
-        vkCmdPushConstants(commandBuffer, _pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, GetTotalSize(_uniformInfos), &_uniformData[0]);
-
+        UpdateUniforms(commandBuffer);
         vkCmdDispatch(commandBuffer, threadGroupsX, threadGroupsY, threadGroupsZ);
 
         if (imageBarrier)
@@ -179,8 +184,7 @@ namespace VulkanUtilities
         }
 
         SetInt("kernelIndex", 1);
-        vkCmdPushConstants(commandBuffer, _pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, GetTotalSize(_uniformInfos), &_uniformData[0]);
-
+        UpdateUniforms(commandBuffer);
         vkCmdDispatch(commandBuffer, threadGroupsX, threadGroupsY, threadGroupsZ);
 
         if (imageBarrier)
@@ -193,7 +197,7 @@ namespace VulkanUtilities
         }
 
         SetInt("kernelIndex", 2);
-        vkCmdPushConstants(commandBuffer, _pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, GetTotalSize(_uniformInfos), &_uniformData[0]);
+        UpdateUniforms(commandBuffer);
 
         vkCmdDispatch(commandBuffer, threadGroupsX, threadGroupsY, threadGroupsZ);
     }

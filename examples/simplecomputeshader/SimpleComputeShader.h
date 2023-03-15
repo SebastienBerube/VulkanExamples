@@ -26,12 +26,7 @@ namespace VulkanUtilities
         void CreatePipeline();
 
     private:
-        struct PushConstants
-        {
-            int kernelIndex;
-            int frameIndex;
-        } pc;
-
+        void UpdateUniforms(VkCommandBuffer commandBuffer);
         void PrepareDescriptorSets();
 
         //Not owner

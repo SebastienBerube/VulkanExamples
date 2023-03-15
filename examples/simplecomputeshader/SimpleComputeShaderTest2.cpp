@@ -594,7 +594,7 @@ void SimpleComputeShaderTest2::buildComputeCommandBuffer()
         clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
         vkCmdClearColorImage(compute.commandBuffer, compute.pass.thresholdResult.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
         
-        compute.pass.computeShader->DispatchAllKernels_Test(compute.commandBuffer, 0, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1, imageBarrier);
+        compute.pass.computeShader->DispatchAllKernels_Test(compute.commandBuffer, this->frameCounter, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1, imageBarrier);
 
         /*
         compute.pass.computeShader->Dispatch(compute.commandBuffer, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);

@@ -29,7 +29,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int)
     };
 
     //TODO : Add switch here
-    vulkanExample = new SimpleComputeShaderTest2();
+    vulkanExample = new SimpleComputeShaderTest1();
     vulkanExample->initVulkan();
     vulkanExample->setupWindow(hInstance, WndProc);
     vulkanExample->prepare();
