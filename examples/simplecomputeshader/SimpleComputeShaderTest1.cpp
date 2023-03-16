@@ -405,15 +405,15 @@ void SimpleComputeShaderTest1::prepareCompute()
     // Get a compute queue from the device
     vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.compute, 0, &compute.queue);
 
-    vks::Texture& srcImage = textureColorMap;
+    vks::Texture* srcImage = &textureColorMap;
     for (auto& computePass : compute.passes)
     {
         computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName);
-        computePass.computeShader->SetTexture(0, "inputImage", srcImage);
+        computePass.computeShader->SetTexture(0, "inputImage", *srcImage);
         computePass.computeShader->SetTexture(0, "resultImage", computePass.textureComputeTarget);
 
         //Input texture is output of the previous compute pass
-        srcImage = computePass.textureComputeTarget;
+        srcImage = &computePass.textureComputeTarget;
     }
 
     // One pipeline for each effect
