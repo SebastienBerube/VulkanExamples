@@ -87,14 +87,15 @@ namespace VulkanUtilities
         VkPipelineLayoutCreateInfo pPipelineLayoutCreateInfo =
             vks::initializers::pipelineLayoutCreateInfo(&_descriptorSetLayout, 1);
         
-        //<ADDED S.B. Push_Contants>
-        _pushConstantRange.offset = 0;
-        _pushConstantRange.size = GetTotalSize(_uniformInfos);
-        //_pushConstantRange.size = sizeof(PushConstants);
-        _pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-        pPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-        pPipelineLayoutCreateInfo.pPushConstantRanges = &_pushConstantRange;
-        //</ADDED S.B. Push_Contants>
+        int pushConstantsSize = GetTotalSize(_uniformInfos);
+        if (pushConstantsSize > 0)
+        {
+            _pushConstantRange.offset = 0;
+            _pushConstantRange.size = GetTotalSize(_uniformInfos);
+            _pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+            pPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+            pPipelineLayoutCreateInfo.pPushConstantRanges = &_pushConstantRange;
+        }
 
         VK_CHECK_RESULT(vkCreatePipelineLayout(_framework.getVkDevice(), &pPipelineLayoutCreateInfo, nullptr, &_pipelineLayout));
 
