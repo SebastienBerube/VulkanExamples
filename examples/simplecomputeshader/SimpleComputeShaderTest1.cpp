@@ -64,7 +64,7 @@ void SimpleComputeShaderTest1::createComputePasses()
 {
     //framework = new VulkanUtilities::VulkanExampleFramework(*this, descriptorPool, pipelineCache);// (*this, descriptorPool, pipelineCache);
 
-    std::vector<std::string> shaderNames = { "threshold", "blur", "channelswap", "threshold" };
+    std::vector<std::string> shaderNames = { "computeshadernetwork/threshold", "computeshadernetwork/blur", "computeshadernetwork/channelswap", "computeshadernetwork/threshold" };
 
     for (auto shaderName : shaderNames)
     {

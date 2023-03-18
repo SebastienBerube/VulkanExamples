@@ -33,12 +33,9 @@ SimpleComputeShaderTest2::~SimpleComputeShaderTest2()
     vkDestroySemaphore(device, graphics.semaphore, nullptr);
 
     // Compute
-    //for (auto& computePass : compute.passes)
-    {
-        delete compute.pass.computeShader;
-        compute.pass.computeShader = nullptr;
-    }
-
+    delete compute.pass.computeShader;
+    compute.pass.computeShader = nullptr;
+    
     vkDestroySemaphore(device, compute.semaphore, nullptr);
     vkDestroyCommandPool(device, compute.commandPool, nullptr);
 
@@ -48,12 +45,9 @@ SimpleComputeShaderTest2::~SimpleComputeShaderTest2()
 
     textureColorMap.destroy();
 
-    //for (auto& computePass : compute.passes)
-    {
-        compute.pass.thresholdResult.destroy();
-        compute.pass.blurResult.destroy();
-        compute.pass.channelSwapResult.destroy();
-    }
+    compute.pass.thresholdResult.destroy();
+    compute.pass.blurResult.destroy();
+    compute.pass.channelSwapResult.destroy();
 }
 
 vks::Texture2D& SimpleComputeShaderTest2::lastTextureComputeTarget()
@@ -71,7 +65,7 @@ void SimpleComputeShaderTest2::loadAssets()
 void SimpleComputeShaderTest2::createComputePasses()
 {
     
-    compute.pass.shaderName = "multikerneltest";
+    compute.pass.shaderName = "computeshadernetwork/multikerneltest";
 }
 
 // Setup vertices for a single uv-mapped quad

@@ -14,8 +14,8 @@ namespace VulkanUtilities
     {
     public:
         
-
-        SimpleComputeShader(VulkanFramework& framework, const std::string& shader);
+        //shaderAssetPath example : "computeshadernetwork/blur"
+        SimpleComputeShader(VulkanFramework& framework, const std::string& shaderAssetPath);
         ~SimpleComputeShader();
 
         void SetFloat(const std::string& name, float val);
@@ -31,7 +31,7 @@ namespace VulkanUtilities
 
         //Not owner
         VulkanFramework& _framework;
-        std::string _shaderName;
+        std::string _shaderAssetPath;
 
         //Owner
         std::vector<BindingInfo> _bindingInfos;

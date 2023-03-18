@@ -50,11 +50,11 @@ namespace VulkanUtilities
         return setLayoutBindings;
     }
 
-    SimpleComputeShader::SimpleComputeShader(VulkanFramework& framework, const std::string& shader)
+    SimpleComputeShader::SimpleComputeShader(VulkanFramework& framework, const std::string& shaderAssetPath)
         : _framework(framework)
     {
-        _uniformInfos = ParseShaderUniforms(shader);
-        _shaderName = shader;
+        _uniformInfos = ParseShaderUniforms(shaderAssetPath);
+        _shaderAssetPath = shaderAssetPath;
         int totalSize = GetTotalSize(_uniformInfos);
         if (totalSize > 0)
         {
@@ -77,7 +77,7 @@ namespace VulkanUtilities
 
     void SimpleComputeShader::PrepareDescriptorSets()
     {
-        _bindingInfos = ParseShaderBindings(_shaderName);
+        _bindingInfos = ParseShaderBindings(_shaderAssetPath);
 
         std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = getDescriptorSetLayout(_bindingInfos);
 
@@ -111,7 +111,7 @@ namespace VulkanUtilities
         VkComputePipelineCreateInfo computePipelineCreateInfo =
             vks::initializers::computePipelineCreateInfo(_pipelineLayout, 0);
 
-        std::string fileName = _framework.getShadersPath() + "computeshadernetwork/" + _shaderName + ".comp.spv";
+        std::string fileName = _framework.getShadersPath() + _shaderAssetPath + ".comp.spv";
         computePipelineCreateInfo.stage = _framework.loadShader(fileName, VK_SHADER_STAGE_COMPUTE_BIT);
 
         VK_CHECK_RESULT(vkCreateComputePipelines(_framework.getVkDevice(), _framework.getPipelineCache(), 1, &computePipelineCreateInfo, nullptr, &_pipeline));
