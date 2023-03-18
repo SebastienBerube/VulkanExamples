@@ -6,7 +6,7 @@
 * This code is licensed under the MIT license (MIT) (http://opensource.org/licenses/MIT)
 */
 
-#include "SimpleComputeShaderTest2.h"
+#include "FluidComputeShaderTest.h"
 #include "VulkanFramework.h"
 #include "SimpleComputeShader.h"
 
@@ -18,7 +18,7 @@ namespace
     };
 }
 
-SimpleComputeShaderTest2::SimpleComputeShaderTest2() : VulkanExampleBase(ENABLE_VALIDATION)
+FluidComputeShaderTest::FluidComputeShaderTest() : VulkanExampleBase(ENABLE_VALIDATION)
 {
     title = "Simple Compute shader test 1";
     camera.type = Camera::CameraType::lookat;
@@ -27,7 +27,7 @@ SimpleComputeShaderTest2::SimpleComputeShaderTest2() : VulkanExampleBase(ENABLE_
     camera.setPerspective(60.0f, (float)width * 0.5f / (float)height, 1.0f, 256.0f);
 }
 
-SimpleComputeShaderTest2::~SimpleComputeShaderTest2()
+FluidComputeShaderTest::~FluidComputeShaderTest()
 {
     // Graphics
     vkDestroyPipeline(device, graphics.pipeline, nullptr);
@@ -36,9 +36,12 @@ SimpleComputeShaderTest2::~SimpleComputeShaderTest2()
     vkDestroySemaphore(device, graphics.semaphore, nullptr);
 
     // Compute
-    delete compute.pass.computeShader;
-    compute.pass.computeShader = nullptr;
-    
+    for (auto& computePass : compute.passes)
+    {
+        delete computePass.computeShader;
+        computePass.computeShader = nullptr;
+    }
+
     vkDestroySemaphore(device, compute.semaphore, nullptr);
     vkDestroyCommandPool(device, compute.commandPool, nullptr);
 
@@ -48,31 +51,39 @@ SimpleComputeShaderTest2::~SimpleComputeShaderTest2()
 
     textureColorMap.destroy();
 
-    compute.pass.thresholdResult.destroy();
-    compute.pass.blurResult.destroy();
-    compute.pass.channelSwapResult.destroy();
+    for (auto& computePass : compute.passes)
+    {
+        computePass.textureComputeTarget.destroy();
+    }
 }
 
-vks::Texture2D& SimpleComputeShaderTest2::lastTextureComputeTarget()
+vks::Texture2D& FluidComputeShaderTest::lastTextureComputeTarget()
 {
-    //size_t lastComputePassIdx = compute.passes.size() - 1;
-    return compute.pass.channelSwapResult;
-
+    size_t lastComputePassIdx = compute.passes.size() - 1;
+    return compute.passes[lastComputePassIdx].textureComputeTarget;
 }
 
-void SimpleComputeShaderTest2::loadAssets()
+void FluidComputeShaderTest::loadAssets()
 {
     textureColorMap.loadFromFile(getAssetPath() + "textures/vulkan_11_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL);
 }
 
-void SimpleComputeShaderTest2::createComputePasses()
+void FluidComputeShaderTest::createComputePasses()
 {
-    
-    compute.pass.shaderName = "computeshadernetwork/multikerneltest";
+    //framework = new VulkanUtilities::VulkanExampleFramework(*this, descriptorPool, pipelineCache);// (*this, descriptorPool, pipelineCache);
+
+    std::vector<std::string> shaderNames = { "simplecomputeshader/Advect" };
+
+    for (auto shaderName : shaderNames)
+    {
+        ComputePass computePass;
+        computePass.shaderName = shaderName;
+        compute.passes.push_back(computePass);
+    }
 }
 
 // Setup vertices for a single uv-mapped quad
-void SimpleComputeShaderTest2::generateQuad()
+void FluidComputeShaderTest::generateQuad()
 {
     // Setup vertices for a single uv-mapped quad made from two triangles
     std::vector<Vertex> vertices =
@@ -105,7 +116,7 @@ void SimpleComputeShaderTest2::generateQuad()
         indices.data()));
 }
 
-void SimpleComputeShaderTest2::setupVertexDescriptions()
+void FluidComputeShaderTest::setupVertexDescriptions()
 {
     // Binding description
     vertices.bindingDescriptions = {
@@ -130,7 +141,7 @@ void SimpleComputeShaderTest2::setupVertexDescriptions()
 }
 
 // Prepare and initialize uniform buffer containing shader uniforms
-void SimpleComputeShaderTest2::prepareUniformBuffers()
+void FluidComputeShaderTest::prepareUniformBuffers()
 {
     // Vertex shader uniform buffer block
     VK_CHECK_RESULT(vulkanDevice->createBuffer(
@@ -145,14 +156,14 @@ void SimpleComputeShaderTest2::prepareUniformBuffers()
     updateUniformBuffers();
 }
 
-void SimpleComputeShaderTest2::updateUniformBuffers()
+void FluidComputeShaderTest::updateUniformBuffers()
 {
     uboVS.projection = camera.matrices.perspective;
     uboVS.modelView = camera.matrices.view;
     memcpy(uniformBufferVS.mapped, &uboVS, sizeof(uboVS));
 }
 
-void SimpleComputeShaderTest2::prepareTextureTarget(vks::Texture* tex, uint32_t width, uint32_t height, VkFormat format)
+void FluidComputeShaderTest::prepareTextureTarget(vks::Texture* tex, uint32_t width, uint32_t height, VkFormat format)
 {
     VkFormatProperties formatProperties;
 
@@ -244,7 +255,7 @@ void SimpleComputeShaderTest2::prepareTextureTarget(vks::Texture* tex, uint32_t 
     tex->device = vulkanDevice;
 }
 
-void SimpleComputeShaderTest2::setupGraphicsDescriptorSetLayout()
+void FluidComputeShaderTest::setupGraphicsDescriptorSetLayout()
 {
     std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
         // Binding 0: Vertex shader uniform buffer
@@ -260,7 +271,7 @@ void SimpleComputeShaderTest2::setupGraphicsDescriptorSetLayout()
     VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pPipelineLayoutCreateInfo, nullptr, &graphics.pipelineLayout));
 }
 
-void SimpleComputeShaderTest2::preparePipelines()
+void FluidComputeShaderTest::preparePipelines()
 {
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyState =
         vks::initializers::pipelineInputAssemblyStateCreateInfo(
@@ -337,7 +348,7 @@ void SimpleComputeShaderTest2::preparePipelines()
     VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCreateInfo, nullptr, &graphics.pipeline));
 }
 
-void SimpleComputeShaderTest2::setupDescriptorPool()
+void FluidComputeShaderTest::setupDescriptorPool()
 {
     std::vector<VkDescriptorPoolSize> poolSizes = {
         // Graphics pipelines uniform buffers
@@ -346,12 +357,11 @@ void SimpleComputeShaderTest2::setupDescriptorPool()
         vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2)
     };
 
-    //S.B. TODO : Here, use information from shader to properly compute pool size.
-    //for (auto& computePass : compute.passes)
+    for (auto& computePass : compute.passes)
     {
         poolSizes.push_back(
             // Compute pipelines uses a storage image for image reads and writes
-            vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 6)
+            vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2)
         );
     }
 
@@ -359,7 +369,7 @@ void SimpleComputeShaderTest2::setupDescriptorPool()
     VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
 }
 
-void SimpleComputeShaderTest2::setupDescriptorSet()
+void FluidComputeShaderTest::setupDescriptorSet()
 {
     VkDescriptorSetAllocateInfo allocInfo =
         vks::initializers::descriptorSetAllocateInfo(descriptorPool, &graphics.descriptorSetLayout, 1);
@@ -381,7 +391,7 @@ void SimpleComputeShaderTest2::setupDescriptorSet()
     vkUpdateDescriptorSets(device, writeDescriptorSets.size(), writeDescriptorSets.data(), 0, nullptr);
 }
 
-void SimpleComputeShaderTest2::prepareGraphics()
+void FluidComputeShaderTest::prepareGraphics()
 {
     // Semaphore for compute & graphics sync
     VkSemaphoreCreateInfo semaphoreCreateInfo = vks::initializers::semaphoreCreateInfo();
@@ -395,7 +405,7 @@ void SimpleComputeShaderTest2::prepareGraphics()
     VK_CHECK_RESULT(vkQueueWaitIdle(queue));
 }
 
-void SimpleComputeShaderTest2::prepareCompute()
+void FluidComputeShaderTest::prepareCompute()
 {
     //testUnityCompute();
     framework = new VulkanUtilities::VulkanExampleFramework(*this, descriptorPool, pipelineCache);// (*this, descriptorPool, pipelineCache);
@@ -403,14 +413,23 @@ void SimpleComputeShaderTest2::prepareCompute()
     // Get a compute queue from the device
     vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.compute, 0, &compute.queue);
 
-    compute.pass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, compute.pass.shaderName);
-    compute.pass.computeShader->SetTexture(0, "thresholdInput", textureColorMap);
-    compute.pass.computeShader->SetTexture(0, "thresholdResult",   compute.pass.thresholdResult);
-    compute.pass.computeShader->SetTexture(1, "blurInput",         compute.pass.thresholdResult);
-    compute.pass.computeShader->SetTexture(1, "blurResult",        compute.pass.blurResult);
-    compute.pass.computeShader->SetTexture(2, "channelSwapInput",  compute.pass.blurResult);
-    compute.pass.computeShader->SetTexture(2, "channelSwapResult", compute.pass.channelSwapResult);
-    compute.pass.computeShader->CreatePipeline();
+    vks::Texture* srcImage = &textureColorMap;
+    for (auto& computePass : compute.passes)
+    {
+        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName);
+        computePass.computeShader->SetTexture(0, "inputImage", *srcImage);
+        computePass.computeShader->SetTexture(0, "resultImage", computePass.textureComputeTarget);
+
+        //Input texture is output of the previous compute pass
+        srcImage = &computePass.textureComputeTarget;
+    }
+
+    // One pipeline for each effect
+    for (auto& computePass : compute.passes)
+    {
+        //TODO : Test pipeline creation in SimpleComputeShader constructor
+        computePass.computeShader->CreatePipeline();
+    }
 
     // Separate command pool as queue family for compute may be different than graphics
     VkCommandPoolCreateInfo cmdPoolInfo = {};
@@ -436,7 +455,7 @@ void SimpleComputeShaderTest2::prepareCompute()
     buildComputeCommandBuffer();
 }
 
-void SimpleComputeShaderTest2::buildCommandBuffers()
+void FluidComputeShaderTest::buildCommandBuffers()
 {
     VkCommandBufferBeginInfo cmdBufInfo = vks::initializers::commandBufferBeginInfo();
 
@@ -511,7 +530,6 @@ void SimpleComputeShaderTest2::buildCommandBuffers()
         vkCmdEndRenderPass(drawCmdBuffers[i]);
 
         {
-            /*
             VkClearColorValue clearColor0 = { 1.0f, 0.0f, 0.0f, 1.0f };
 
             VkImageSubresourceRange clearRange;
@@ -520,8 +538,7 @@ void SimpleComputeShaderTest2::buildCommandBuffers()
             clearRange.levelCount = VK_REMAINING_MIP_LEVELS;
             clearRange.baseArrayLayer = 0;
             clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-            vkCmdClearColorImage(drawCmdBuffers[i], compute.pass.thresholdResult.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
-            */
+            vkCmdClearColorImage(drawCmdBuffers[i], compute.passes[0].textureComputeTarget.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
         }
 
         VK_CHECK_RESULT(vkEndCommandBuffer(drawCmdBuffers[i]));
@@ -529,46 +546,7 @@ void SimpleComputeShaderTest2::buildCommandBuffers()
 
 }
 
-void SimpleComputeShaderTest2::refreshCommandBuffer()
-{
-    VkCommandBufferBeginInfo cmdBufInfo = vks::initializers::commandBufferBeginInfo();
-
-    VK_CHECK_RESULT(vkBeginCommandBuffer(compute.commandBuffer, &cmdBufInfo));
-
-    //for (auto& computePass : compute.passes)
-
-
-    {
-        VkClearColorValue clearColor0 = { 1.0f, 0.0f, 0.0f, 1.0f };
-
-        VkImageSubresourceRange clearRange;
-        clearRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        clearRange.baseMipLevel = 0;
-        clearRange.levelCount = VK_REMAINING_MIP_LEVELS;
-        clearRange.baseArrayLayer = 0;
-        clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-        vkCmdClearColorImage(compute.commandBuffer, compute.pass.thresholdResult.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
-
-        
-        compute.pass.computeShader->DispatchAllKernels_Test(
-            compute.commandBuffer, 
-            this->frameCounter, 
-            compute.pass.channelSwapResult.width / 16, 
-            compute.pass.channelSwapResult.height / 16, 
-            1,
-            imageBarrier);
-
-        /*
-        compute.pass.computeShader->Dispatch(compute.commandBuffer, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
-        compute.pass.computeShader->Dispatch(compute.commandBuffer, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
-        compute.pass.computeShader->Dispatch(compute.commandBuffer, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
-        */
-    }
-
-    vkEndCommandBuffer(compute.commandBuffer);
-}
-
-void SimpleComputeShaderTest2::buildComputeCommandBuffer()
+void FluidComputeShaderTest::buildComputeCommandBuffer()
 {
     // Flush the queue if we're rebuilding the command buffer after a pipeline change to ensure it's not currently in use
     vkQueueWaitIdle(compute.queue);
@@ -577,38 +555,18 @@ void SimpleComputeShaderTest2::buildComputeCommandBuffer()
 
     VK_CHECK_RESULT(vkBeginCommandBuffer(compute.commandBuffer, &cmdBufInfo));
 
-    //for (auto& computePass : compute.passes)
-    
-
+    for (auto& computePass : compute.passes)
     {
-        VkClearColorValue clearColor0 = { 1.0f, 0.0f, 0.0f, 1.0f };
-
-        VkImageSubresourceRange clearRange;
-        clearRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        clearRange.baseMipLevel = 0;
-        clearRange.levelCount = VK_REMAINING_MIP_LEVELS;
-        clearRange.baseArrayLayer = 0;
-        clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-        vkCmdClearColorImage(compute.commandBuffer, compute.pass.thresholdResult.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
-        
-        compute.pass.computeShader->DispatchAllKernels_Test(compute.commandBuffer, this->frameCounter, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1, imageBarrier);
-
-        /*
-        compute.pass.computeShader->Dispatch(compute.commandBuffer, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
-        compute.pass.computeShader->Dispatch(compute.commandBuffer, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
-        compute.pass.computeShader->Dispatch(compute.commandBuffer, compute.pass.channelSwapResult.width / 16, compute.pass.channelSwapResult.height / 16, 1);
-        */
+        computePass.computeShader->Dispatch(compute.commandBuffer, 0, 0, computePass.textureComputeTarget.width / 16, computePass.textureComputeTarget.height / 16, 1);
     }
     
     vkEndCommandBuffer(compute.commandBuffer);
 }
 
-void SimpleComputeShaderTest2::draw()
+void FluidComputeShaderTest::draw()
 {
     // Wait for rendering finished
     VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-
-    refreshCommandBuffer();
 
     // Submit compute commands
     VkSubmitInfo computeSubmitInfo = vks::initializers::submitInfo();
@@ -640,30 +598,29 @@ void SimpleComputeShaderTest2::draw()
     VulkanExampleBase::submitFrame();
 }
 
-void SimpleComputeShaderTest2::render()
+void FluidComputeShaderTest::render()
 {
     if (!prepared)
         return;
-    buildComputeCommandBuffer();
     draw();
     if (camera.updated) {
         updateUniformBuffers();
     }
 }
 
-void SimpleComputeShaderTest2::viewChanged()
+void FluidComputeShaderTest::viewChanged()
 {
     camera.setPerspective(60.0f, (float)width * 0.5f / (float)height, 1.0f, 256.0f);
     updateUniformBuffers();
 }
 
-void SimpleComputeShaderTest2::OnUpdateUIOverlay(vks::UIOverlay *overlay)
+void FluidComputeShaderTest::OnUpdateUIOverlay(vks::UIOverlay *overlay)
 {
     if (overlay->header("Settings")) {
         /*if (overlay->comboBox("Shader", &compute.pipelineIndex, shaderNames)) {
             buildComputeCommandBuffer();
         }*/
         overlay->checkBox("Semaphore", &computeSemaphore);
-        overlay->checkBox("Image Barrier", &imageBarrier);
+        overlay->checkBox("ImageBarrier", &imageBarrier);
     }
 }

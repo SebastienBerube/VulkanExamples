@@ -60,6 +60,12 @@ namespace VulkanUtilities
 
             )";
         }
+        if (shader.find("Advect") != std::string::npos)
+        {
+            testCode = R"(
+                float DeltaTime;
+            )";
+        }
         else if (shader.find("FluidSimCommon.compute") != std::string::npos)
         {
             testCode = R"(
@@ -189,6 +195,14 @@ namespace VulkanUtilities
         bindingInfos.push_back(BindingInfo{ name, type, format, (uint32_t)bindingInfos.size() });
     }
 
+    std::vector<BindingInfo> ReadBindingInfosFromAdvectShader(const std::string& shader)
+    {
+        std::vector<BindingInfo> bindingInfos;
+        PushBindind(bindingInfos, "inputImage", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM);
+        PushBindind(bindingInfos, "resultImage", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM);
+        return bindingInfos;
+    }
+
     std::vector<BindingInfo> ReadBindingInfosFromExampleShaders(const std::string& shader)
     {
         std::vector<BindingInfo> bindingInfos;
@@ -284,6 +298,10 @@ namespace VulkanUtilities
         else if (shader.find("FluidSimCommon.compute") != std::string::npos)
         {
             return ReadBindingInfosFromUnityShader(shader);
+        }
+        else if (shader.find("Advect") != std::string::npos)
+        {
+            return ReadBindingInfosFromAdvectShader(shader);
         }
         
         return ReadBindingInfosFromExampleShaders(shader);

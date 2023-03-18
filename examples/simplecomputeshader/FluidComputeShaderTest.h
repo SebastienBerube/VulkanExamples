@@ -1,5 +1,5 @@
-#ifndef SIMPLE_COMPUTE_SHADER_TEST2_H_
-#define SIMPLE_COMPUTE_SHADER_TEST2_H_
+#ifndef FLUID_COMPUTE_SHADER_TEST1_H_
+#define FLUID_COMPUTE_SHADER_TEST1_H_
 
 /*
 * Vulkan Example - Compute shader image processing
@@ -15,7 +15,7 @@
 #define VERTEX_BUFFER_BIND_ID 0
 #define ENABLE_VALIDATION false
 
-class SimpleComputeShaderTest2 : public VulkanExampleBase
+class FluidComputeShaderTest : public VulkanExampleBase
 {
 private:
     vks::Texture2D textureColorMap;
@@ -39,9 +39,7 @@ public:
     struct ComputePass {
         VulkanUtilities::SimpleComputeShader* computeShader;
         std::string shaderName;
-        vks::Texture2D thresholdResult;
-        vks::Texture2D blurResult;
-        vks::Texture2D channelSwapResult;
+        vks::Texture2D textureComputeTarget;
     };
 
     // Resources for the compute part of the example
@@ -50,7 +48,7 @@ public:
         VkCommandPool commandPool;                    // Use a separate command pool (queue family may differ from the one used for graphics)
         VkCommandBuffer commandBuffer;                // Command buffer storing the dispatch commands and barriers
         VkSemaphore semaphore;                      // Execution dependency between compute & graphic submission
-        ComputePass pass;
+        std::vector<ComputePass> passes;
     } compute;
 
     VulkanUtilities::VulkanExampleFramework* framework;
@@ -70,9 +68,9 @@ public:
 
     int vertexBufferSize;
 
-    SimpleComputeShaderTest2();
+    FluidComputeShaderTest();
 
-    ~SimpleComputeShaderTest2();
+    ~FluidComputeShaderTest();
 
     vks::Texture2D& lastTextureComputeTarget();
 
@@ -108,8 +106,6 @@ public:
 
     void buildComputeCommandBuffer();
 
-    void refreshCommandBuffer();
-
     void draw();
 
     void prepare()
@@ -121,12 +117,9 @@ public:
         setupVertexDescriptions();
         prepareUniformBuffers();
         
-        //for(auto& computePass : compute.passes)
+        for(auto& computePass : compute.passes)
         {
-            prepareTextureTarget(&compute.pass.thresholdResult, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
-            prepareTextureTarget(&compute.pass.blurResult, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
-            prepareTextureTarget(&compute.pass.channelSwapResult, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
-            
+            prepareTextureTarget(&computePass.textureComputeTarget, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
         }
         
         setupGraphicsDescriptorSetLayout();
@@ -146,4 +139,4 @@ public:
     virtual void OnUpdateUIOverlay(vks::UIOverlay* overlay);
 };
 
-#endif //SIMPLE_COMPUTE_SHADER_TEST2_H_
+#endif //FLUID_COMPUTE_SHADER_TEST1_H_

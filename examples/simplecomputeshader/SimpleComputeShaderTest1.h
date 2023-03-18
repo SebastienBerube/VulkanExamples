@@ -15,12 +15,6 @@
 #define VERTEX_BUFFER_BIND_ID 0
 #define ENABLE_VALIDATION false
 
-// Vertex layout for this example
-struct Vertex {
-    float pos[3];
-    float uv[2];
-};
-
 class SimpleComputeShaderTest1 : public VulkanExampleBase
 {
 private:

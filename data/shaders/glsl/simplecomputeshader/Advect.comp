@@ -1,20 +1,32 @@
-﻿float DeltaTime;
+#version 450
+
+layout(push_constant) uniform PushConstants {
+    float DeltaTime;
+} pc;
+
+layout (local_size_x = 16, local_size_y = 16) in;
 
 // U (velocity field)
-Texture2D<float2> U_in;
-SamplerState samplerU_in;
+layout (binding = 0, rg32f) uniform readonly image2D U_in;
+layout (binding = 0) uniform sampler2D U_in_sampler;
+layout (binding = 1, rg32f) uniform image2D W_out;
 
-RWTexture2D<float2> W_out;
-
-// Advect step
-[numthreads(8, 8, 1)]
-void Advect(uint2 tid : SV_DispatchThreadID)
+vec2 hash22(vec2 p)
 {
-    uint2 dim;
-    W_out.GetDimensions(dim.x, dim.y);
+    vec3 p3 = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yzx+33.33);
+    return fract((p3.xx+p3.yz)*p3.zy);
+}
 
-    float2 uv = (tid + 0.5) / dim;
-    float2 duv = U_in[tid] * float2((float)dim.y / dim.x, 1) * DeltaTime;
+void main()
+{
+    ivec2 tid = ivec2(gl_GlobalInvocationID.xy);
+    
+    uvec2 dim = imageSize(W_out);
+    
+    vec2 uv = (tid.xy + 0.5) / dim;
+    vec2 duv = imageLoad(U_in, tid).rg * vec2(float(dim.y) / dim.x, 1) * 0.1;
 
-    W_out[tid] = U_in.SampleLevel(samplerU_in, uv - duv, 0);
+    vec2 value_out = texture(U_in_sampler, uv - duv, 0.0).rg;
+    imageStore(W_out, tid, vec4(value_out,0,0));
 }

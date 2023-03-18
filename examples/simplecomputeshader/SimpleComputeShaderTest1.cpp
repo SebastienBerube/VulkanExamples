@@ -10,6 +10,14 @@
 #include "VulkanFramework.h"
 #include "SimpleComputeShader.h"
 
+namespace
+{
+    struct Vertex {
+        float pos[3];
+        float uv[2];
+    };
+}
+
 SimpleComputeShaderTest1::SimpleComputeShaderTest1() : VulkanExampleBase(ENABLE_VALIDATION)
 {
     title = "Simple Compute shader test 1";
@@ -64,7 +72,7 @@ void SimpleComputeShaderTest1::createComputePasses()
 {
     //framework = new VulkanUtilities::VulkanExampleFramework(*this, descriptorPool, pipelineCache);// (*this, descriptorPool, pipelineCache);
 
-    std::vector<std::string> shaderNames = { "computeshadernetwork/threshold", "computeshadernetwork/blur", "computeshadernetwork/channelswap", "computeshadernetwork/threshold" };
+    std::vector<std::string> shaderNames = { "simplecomputeshader/threshold", "simplecomputeshader/blur", "simplecomputeshader/channelswap", "simplecomputeshader/threshold" };
 
     for (auto shaderName : shaderNames)
     {
