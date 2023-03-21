@@ -198,7 +198,7 @@ namespace VulkanUtilities
     std::vector<BindingInfo> ReadBindingInfosFromAdvectShader(const std::string& shader)
     {
         std::vector<BindingInfo> bindingInfos;
-        PushBindind(bindingInfos, "U_in_sampler", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_FORMAT_R32G32_SFLOAT);
+        PushBindind(bindingInfos, "samplerU_in", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_FORMAT_R32G32_SFLOAT);
         PushBindind(bindingInfos, "U_in", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT);
         PushBindind(bindingInfos, "W_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT);
         return bindingInfos;

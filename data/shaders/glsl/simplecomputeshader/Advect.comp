@@ -7,10 +7,7 @@ layout(push_constant) uniform PushConstants {
 layout (local_size_x = 16, local_size_y = 16) in;
 
 // U (velocity field)
-//layout (binding = 0, rg32f) uniform readonly image2D U_in;
-//layout (binding = 0) uniform sampler2D U_in_sampler;
-//layout (binding = 1, rg32f) uniform image2D W_out;
-layout (binding = 0) uniform sampler2D U_in_sampler;
+layout (binding = 0) uniform sampler2D samplerU_in;
 layout (binding = 1, rg32f) uniform readonly image2D U_in;
 layout (binding = 2, rg32f) uniform image2D W_out;
 
@@ -21,10 +18,9 @@ void main()
     uvec2 dim = imageSize(W_out);
     
     vec2 uv = (tid.xy + 0.5) / dim;
-    vec2 duv = imageLoad(U_in, tid).rg * vec2(float(dim.y) / dim.x, 1) * 0.1;
+    vec2 duv = imageLoad(U_in, tid).rg * vec2(float(dim.y) / dim.x, 1) * pc.DeltaTime;
     
-    //vec2 value_out = texture(U_in_sampler, uv-duv ).rg;
-    vec2 value_out = imageLoad(U_in, tid).rg;
+    vec2 value_out = texture(samplerU_in, uv-duv ).rg;
     
     imageStore(W_out, tid, vec4(value_out,0,0));
 }

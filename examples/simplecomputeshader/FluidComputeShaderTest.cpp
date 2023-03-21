@@ -417,7 +417,8 @@ void FluidComputeShaderTest::prepareCompute()
     for (auto& computePass : compute.passes)
     {
         computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName);
-        computePass.computeShader->SetTexture(0, "U_in_sampler", *srcImage);
+        computePass.computeShader->SetFloat("DeltaTime", this->frameTimer);
+        computePass.computeShader->SetTexture(0, "samplerU_in", *srcImage);
         computePass.computeShader->SetTexture(0, "U_in", *srcImage);
         computePass.computeShader->SetTexture(0, "W_out", computePass.textureComputeTarget);
 
