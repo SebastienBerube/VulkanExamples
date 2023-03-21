@@ -42,6 +42,13 @@ namespace VulkanUtilities
     {
         std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings;
 
+        //This below is for Advec comp shader:
+        /*
+        setLayoutBindings.push_back(VkDescriptorSetLayoutBinding{ 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT });
+        setLayoutBindings.push_back(VkDescriptorSetLayoutBinding{ 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT });
+        setLayoutBindings.push_back(VkDescriptorSetLayoutBinding{ 2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT });
+        */
+        
         for (auto bindingInfo : bindingInfos)
         {
             setLayoutBindings.push_back(vks::initializers::descriptorSetLayoutBinding(bindingInfo.type, VK_SHADER_STAGE_COMPUTE_BIT, bindingInfo.bindingIndex));
@@ -139,7 +146,7 @@ namespace VulkanUtilities
 
         //TODO : Log error here.
         std::vector<VkWriteDescriptorSet> computeWriteDescriptorSets = {
-            vks::initializers::writeDescriptorSet(_descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, bindingInfo.bindingIndex, &imageInfo.descriptor)
+            vks::initializers::writeDescriptorSet(_descriptorSet, bindingInfo.type, bindingInfo.bindingIndex, &imageInfo.descriptor)
         };
         vkUpdateDescriptorSets(_framework.getVkDevice(), computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
     }
