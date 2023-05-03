@@ -106,8 +106,8 @@ ELSEIF(LINUX)
 	find_library(dxc_lib_path NAMES libdxcompiler PATHS ${CMAKE_SOURCE_DIR}/libs/dxc/linux)
 ENDIF()
 message("find_library result : ${dxc_lib_path}")
-target_include_directories(dxc_test_main PRIVATE ${CMAKE_SOURCE_DIR}/external/dxc)
-target_link_libraries(dxc_test_main ${dxc_lib_path})
+include_directories(PRIVATE ${CMAKE_SOURCE_DIR}/external/dxc)
+link_libraries(${dxc_lib_path})
 
 # Set preprocessor defines
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNOMINMAX -D_USE_MATH_DEFINES")
