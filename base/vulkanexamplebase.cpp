@@ -184,7 +184,17 @@ void VulkanExampleBase::destroyCommandBuffers()
 
 std::string VulkanExampleBase::getShadersPath() const
 {
-	return getAssetPath() + "shaders/" + shaderDir + "/";
+    switch (shaderFileType)
+    {
+    case ShaderFileType::SPV:
+    case ShaderFileType::GLSL:
+        return getAssetPath() + "shaders/glsl/";
+    case ShaderFileType::HLSL:
+        return getAssetPath() + "shaders/hlsl/";
+    default:
+        std::cerr << "Error: Unknown shader file type." << "\n";
+        return "";
+    }
 }
 
 void VulkanExampleBase::createPipelineCache()
@@ -229,7 +239,7 @@ VkPipelineShaderStageCreateInfo VulkanExampleBase::loadShader(std::string fileNa
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
 	shaderStage.module = vks::tools::loadShader(androidApp->activity->assetManager, fileName.c_str(), device);
 #else
-	shaderStage.module = vks::tools::loadShader(fileName.c_str(), device);
+	shaderStage.module = vks::tools::loadShader(fileName.c_str(), device, shaderFileType);
 #endif
 	shaderStage.pName = "main";
 	assert(shaderStage.module != VK_NULL_HANDLE);
@@ -801,12 +811,18 @@ VulkanExampleBase::VulkanExampleBase(bool enableValidation)
 	}
 	if (commandLineParser.isSet("shaders")) {
 		std::string value = commandLineParser.getValueAsString("shaders", "glsl");
-		if ((value != "glsl") && (value != "hlsl")) {
-			std::cerr << "Shader type must be one of 'glsl' or 'hlsl'\n";
-		}
-		else {
-			shaderDir = value;
-		}
+        if (value == "spv") {
+            shaderFileType = ShaderFileType::SPV;
+        }
+        else if (value == "glsl") {
+            shaderFileType = ShaderFileType::GLSL;
+        }
+        else if (value == "hlsl") {
+            shaderFileType = ShaderFileType::HLSL;
+        }
+        else {
+            std::cerr << "Shader type must be one of 'glsl' or 'hlsl' or 'spv'\n";
+        }
 	}
 	if (commandLineParser.isSet("benchmark")) {
 		benchmark.active = true;

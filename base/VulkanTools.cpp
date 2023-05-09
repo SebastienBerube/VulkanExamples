@@ -332,8 +332,15 @@ namespace vks
 #if defined(__ANDROID__)
 		// Android shaders are stored as assets in the apk
 		// So they need to be loaded via the asset manager
-		VkShaderModule loadShader(AAssetManager* assetManager, const char *fileName, VkDevice device)
-		{
+		VkShaderModule loadShader(AAssetManager* assetManager, const char *fileName, VkDevice device, ShaderFileType type)
+        {
+            assert(type == ShaderFileType::SPV);
+
+            if (type != ShaderFileType::SPV)
+            {
+                std::cerr << "On Android, only spv shaders can be loaded." << std::endl;
+            }
+
 			// Load shader from compressed asset
 			AAsset* asset = AAssetManager_open(assetManager, fileName, AASSET_MODE_STREAMING);
 			assert(asset);
@@ -412,7 +419,7 @@ namespace vks
 			}
 		}
 
-		VkShaderModule loadHlslShader(const char* fileName, VkDevice device)
+		VkShaderModule compileAndLoadHlslShader(const char* fileName, VkDevice device)
 		{
 			ComPtr<IDxcUtils> dxc_utils = {};
 			ComPtr<IDxcCompiler3> dxc_compiler = {};
@@ -472,37 +479,54 @@ namespace vks
 			return shaderModule;
 		}
 
-		VkShaderModule loadShader(const char *fileName, VkDevice device)
+        VkShaderModule loadSpvShader(const char* fileName, VkDevice device)
+        {
+            std::ifstream is(fileName, std::ios::binary | std::ios::in | std::ios::ate);
+
+            if (is.is_open())
+            {
+                size_t size = is.tellg();
+                is.seekg(0, std::ios::beg);
+                char* shaderCode = new char[size];
+                is.read(shaderCode, size);
+                is.close();
+
+                assert(size > 0);
+
+                VkShaderModule shaderModule;
+                VkShaderModuleCreateInfo moduleCreateInfo{};
+                moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+                moduleCreateInfo.codeSize = size;
+                moduleCreateInfo.pCode = (uint32_t*)shaderCode;
+
+                VK_CHECK_RESULT(vkCreateShaderModule(device, &moduleCreateInfo, NULL, &shaderModule));
+
+                delete[] shaderCode;
+
+                return shaderModule;
+            }
+            else
+            {
+                std::cerr << "Error: Could not open shader file \"" << fileName << "\"" << "\n";
+                return VK_NULL_HANDLE;
+            }
+        }
+        
+		VkShaderModule loadShader(const char *fileName, VkDevice device, ShaderFileType type)
 		{
-			std::ifstream is(fileName, std::ios::binary | std::ios::in | std::ios::ate);
-
-			if (is.is_open())
-			{
-				size_t size = is.tellg();
-				is.seekg(0, std::ios::beg);
-				char* shaderCode = new char[size];
-				is.read(shaderCode, size);
-				is.close();
-
-				assert(size > 0);
-
-				VkShaderModule shaderModule;
-				VkShaderModuleCreateInfo moduleCreateInfo{};
-				moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-				moduleCreateInfo.codeSize = size;
-				moduleCreateInfo.pCode = (uint32_t*)shaderCode;
-
-				VK_CHECK_RESULT(vkCreateShaderModule(device, &moduleCreateInfo, NULL, &shaderModule));
-
-				delete[] shaderCode;
-
-				return shaderModule;
-			}
-			else
-			{
-				std::cerr << "Error: Could not open shader file \"" << fileName << "\"" << "\n";
-				return VK_NULL_HANDLE;
-			}
+            switch (type)
+            {
+            case SPV:
+                return loadSpvShader(fileName, device);
+            case HLSL:
+                return compileAndLoadHlslShader(fileName, device);
+            case GLSL:
+                std::cerr << "Error: Compilation for GLSL shaders not yet implemented" << "\n";
+                return VK_NULL_HANDLE;
+            default:
+                std::cerr << "Error: Unsupported shader type" << "\n";
+                return VK_NULL_HANDLE;
+            }
 		}
 #endif
 
