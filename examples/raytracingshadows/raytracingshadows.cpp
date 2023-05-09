@@ -14,6 +14,37 @@
 class VulkanExample : public VulkanRaytracingSample
 {
 public:
+    /*
+    In Vulkan, it is common to have multiple acceleration structures in a single application,
+    especially for complex scenes with many objects or different types of geometry.
+
+    An acceleration structure is a data structure that describes the geometric objects in a scene, 
+    and is typically built once at the beginning of a frame and used for many ray tracing operations
+    during that frame. Depending on the complexity of the scene and the specific ray tracing operations 
+    that are required, it may be more efficient to build and use multiple acceleration structures, 
+    rather than a single, large acceleration structure.
+
+    For example, you might use separate acceleration structures for static and dynamic objects in a scene,
+    or for different types of geometry, such as triangles and spheres. You might also use different 
+    acceleration structures for different stages of the ray tracing pipeline, such as primary rays, 
+    shadow rays, and reflection rays.
+
+    Using multiple acceleration structures can have several advantages:
+
+    - It can improve performance by reducing the amount of geometry that needs to be traversed during ray tracing.
+    For example, if you have a large static object in your scene that never moves, you can build a separate 
+    acceleration structure for that object and only traverse it once during the ray tracing process, 
+    rather than traversing it for every ray.
+    - It can simplify the acceleration structure build process by allowing you to build separate structures 
+    for different types of geometry or stages of the ray tracing pipeline. This can make the build process 
+    faster and more efficient, especially for large or complex scenes.
+    - It can make the code easier to manage and debug by providing a more modular approach to building and 
+    using acceleration structures.
+
+    Overall, while it is possible to use a single acceleration structure in Vulkan, it is common to use 
+    multiple acceleration structures to improve performance and simplify the acceleration structure build 
+    process for complex scenes.
+    */
 	AccelerationStructure bottomLevelAS;
 	AccelerationStructure topLevelAS;
 
@@ -117,6 +148,37 @@ public:
 		createAccelerationStructure(bottomLevelAS, VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR, accelerationStructureBuildSizesInfo);
 
 		// Create a small scratch buffer used during build of the bottom level acceleration structure
+        /*
+        In Vulkan, a scratch buffer is a temporary buffer that is used during the 
+        acceleration structure build process for ray tracing.
+
+        When you create an acceleration structure for ray tracing in Vulkan, 
+        you need to build the structure by iterating over the geometry data and 
+        constructing the nodes and leaf nodes of the acceleration structure hierarchy. 
+        This build process involves a significant amount of memory access and computation, 
+        and can be time-consuming, especially for complex scenes with large amounts of geometry.
+
+        To optimize the acceleration structure build process, Vulkan provides a scratch buffer, 
+        which is a temporary buffer that is used to store intermediate data during the build process. 
+        The scratch buffer is typically much larger than the final acceleration structure and is used 
+        to store intermediate results such as bounding boxes, node lists, and other data that is required 
+        during the build process.
+
+        By using a scratch buffer, Vulkan can reduce the amount of memory allocation and deallocation that 
+        is required during the acceleration structure build process, which can help to improve performance. 
+        In addition, the scratch buffer can be reused across multiple builds of the same type of acceleration 
+        structure, further improving performance by reducing the need to reallocate and deallocate memory.
+
+        To use a scratch buffer in Vulkan, you typically allocate a device-local buffer and bind it to the 
+        command buffer using the vkCmdBuildAccelerationStructuresKHR command. The command takes a pointer 
+        to a VkAccelerationStructureBuildScratchDataKHR structure, which contains information about the size 
+        and location of the scratch buffer. The scratch buffer is then used by the acceleration structure 
+        build process to store intermediate data.
+
+        Overall, a scratch buffer is an important optimization technique for accelerating the acceleration
+        structure build process in Vulkan ray tracing, and can help to improve performance for complex 
+        scenes with large amounts of geometry.
+        */
 		ScratchBuffer scratchBuffer = createScratchBuffer(accelerationStructureBuildSizesInfo.buildScratchSize);
 
 		VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo = vks::initializers::accelerationStructureBuildGeometryInfoKHR();
