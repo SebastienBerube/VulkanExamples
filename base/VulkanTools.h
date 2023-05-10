@@ -60,10 +60,9 @@
 }
 #endif
 
-enum ShaderFileType {
-    SPV = 0x00000001,
-    HLSL = 0x00000002,
-    GLSL = 0x00000003,
+enum ShadingLanguage {
+    HLSL = 0x00000001,
+    GLSL = 0x00000002,
 };
 
 const std::string getAssetPath();
@@ -127,10 +126,12 @@ namespace vks
 
 		// Load a SPIR-V shader (binary)
 #if defined(__ANDROID__)
-		VkShaderModule loadShader(AAssetManager* assetManager, const char *fileName, VkDevice device, ShaderFileType fileType);
+		VkShaderModule loadShader(AAssetManager* assetManager, const char *fileName, VkDevice device);
 #else
-		VkShaderModule loadShader(const char *fileName, VkDevice device, ShaderFileType fileType);
+		VkShaderModule loadShader(const char *fileName, VkDevice device);
 #endif
+
+        VkShaderModule loadShaderFromSource(const char* fileName, VkDevice device, ShadingLanguage shadingLang, VkShaderStageFlagBits shaderStage);
 
 		/** @brief Checks if a file exists */
 		bool fileExists(const std::string &filename);

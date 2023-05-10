@@ -419,8 +419,20 @@ namespace vks
 			}
 		}
 
-		VkShaderModule compileAndLoadHlslShader(const char* fileName, VkDevice device)
+        LPCWSTR getDxcShaderStageArg(VkShaderStageFlagBits shaderStage)
+        {
+            switch (shaderStage)
+            {
+            case VK_SHADER_STAGE_VERTEX_BIT: return L"vs_6_0";
+            case VK_SHADER_STAGE_FRAGMENT_BIT: return L"ps_6_0";
+            case VK_SHADER_STAGE_COMPUTE_BIT: 
+            default: return L"cs_6_0";
+            }
+        }
+
+		VkShaderModule compileAndLoadHlslShader(const char* fileName, VkDevice device, VkShaderStageFlagBits shaderStage)
 		{
+            //OPTME : instance of ComPtr<IDxcCompiler3> should be kept and reused.
 			ComPtr<IDxcUtils> dxc_utils = {};
 			ComPtr<IDxcCompiler3> dxc_compiler = {};
 			DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxc_utils));
@@ -431,7 +443,7 @@ namespace vks
 			args.push_back(L"-HV");
 			args.push_back(L"2021");
 			args.push_back(L"-T");
-			args.push_back(L"cs_6_0");
+            args.push_back(getDxcShaderStageArg(shaderStage));
 			args.push_back(L"-E");
 			args.push_back(L"main");
 			args.push_back(L"-spirv");
@@ -479,7 +491,7 @@ namespace vks
 			return shaderModule;
 		}
 
-        VkShaderModule loadSpvShader(const char* fileName, VkDevice device)
+        VkShaderModule loadShader(const char* fileName, VkDevice device)
         {
             std::ifstream is(fileName, std::ios::binary | std::ios::in | std::ios::ate);
 
@@ -511,24 +523,18 @@ namespace vks
                 return VK_NULL_HANDLE;
             }
         }
-        
-		VkShaderModule loadShader(const char *fileName, VkDevice device, ShaderFileType type)
-		{
-            switch (type)
-            {
-            case SPV:
-                return loadSpvShader(fileName, device);
-            case HLSL:
-                return compileAndLoadHlslShader(fileName, device);
-            case GLSL:
-                std::cerr << "Error: Compilation for GLSL shaders not yet implemented" << "\n";
-                return VK_NULL_HANDLE;
+#endif
+
+        VkShaderModule loadShaderFromSource(const char* fileName, VkDevice device, ShadingLanguage shadingLang, VkShaderStageFlagBits shaderStage)
+        {
+            switch (shadingLang) {
+            case ShadingLanguage::HLSL:
+                return compileAndLoadHlslShader(fileName, device, shaderStage);
             default:
-                std::cerr << "Error: Unsupported shader type" << "\n";
+                std::cerr << "Error: runtime shader compilation is only supported for HLSL\n";
                 return VK_NULL_HANDLE;
             }
-		}
-#endif
+        }
 
 		bool fileExists(const std::string &filename)
 		{
