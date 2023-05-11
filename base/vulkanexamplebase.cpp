@@ -184,7 +184,16 @@ void VulkanExampleBase::destroyCommandBuffers()
 
 std::string VulkanExampleBase::getShadersPath() const
 {
-	return getAssetPath() + "shaders/" + shaderDir + "/";
+    switch (shadingLang)
+    {
+    case ShadingLanguage::GLSL:
+        return getAssetPath() + "shaders/glsl/";
+    case ShadingLanguage::HLSL:
+        return getAssetPath() + "shaders/hlsl/";
+    default:
+        std::cerr << "Error: Unknown shader file type." << "\n";
+        return "";
+    }
 }
 
 void VulkanExampleBase::createPipelineCache()
@@ -221,15 +230,17 @@ void VulkanExampleBase::prepare()
 	}
 }
 
-VkPipelineShaderStageCreateInfo VulkanExampleBase::loadShader(std::string fileName, VkShaderStageFlagBits stage)
+VkPipelineShaderStageCreateInfo VulkanExampleBase::loadShader(std::string fileName, VkShaderStageFlagBits stage, bool loadFromSource)
 {
 	VkPipelineShaderStageCreateInfo shaderStage = {};
 	shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	shaderStage.stage = stage;
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
+    assert(!loadFromSource);
 	shaderStage.module = vks::tools::loadShader(androidApp->activity->assetManager, fileName.c_str(), device);
 #else
-	shaderStage.module = vks::tools::loadShader(fileName.c_str(), device);
+    shaderStage.module = loadFromSource ? vks::tools::loadShaderFromSource(fileName.c_str(), device, shadingLang, stage)
+                                        : vks::tools::loadShader(fileName.c_str(), device);
 #endif
 	shaderStage.pName = "main";
 	assert(shaderStage.module != VK_NULL_HANDLE);
@@ -801,12 +812,15 @@ VulkanExampleBase::VulkanExampleBase(bool enableValidation)
 	}
 	if (commandLineParser.isSet("shaders")) {
 		std::string value = commandLineParser.getValueAsString("shaders", "glsl");
-		if ((value != "glsl") && (value != "hlsl")) {
-			std::cerr << "Shader type must be one of 'glsl' or 'hlsl'\n";
-		}
-		else {
-			shaderDir = value;
-		}
+        if (value == "glsl") {
+            shadingLang = ShadingLanguage::GLSL;
+        }
+        else if (value == "hlsl") {
+            shadingLang = ShadingLanguage::HLSL;
+        }
+        else {
+            std::cerr << "Shader type must be one of 'glsl' or 'hlsl' or 'spv'\n";
+        }
 	}
 	if (commandLineParser.isSet("benchmark")) {
 		benchmark.active = true;

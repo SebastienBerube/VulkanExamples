@@ -8,6 +8,11 @@
 
 #include "VulkanTools.h"
 
+#include <dxcapi.h>
+
+#include <wrl/client.h>
+using namespace Microsoft::WRL;
+
 #if !(defined(VK_USE_PLATFORM_IOS_MVK) || defined(VK_USE_PLATFORM_MACOS_MVK))
 // iOS & macOS: VulkanExampleBase::getAssetPath() implemented externally to allow access to Objective-C components
 const std::string getAssetPath()
@@ -310,7 +315,7 @@ namespace vks
 				MessageBox(NULL, message.c_str(), NULL, MB_OK | MB_ICONERROR);
 			}
 #elif defined(__ANDROID__)
-            LOGE("Fatal error: %s", message.c_str());
+			LOGE("Fatal error: %s", message.c_str());
 			vks::android::showAlert(message.c_str());
 #endif
 			std::cerr << message << "\n";
@@ -327,8 +332,15 @@ namespace vks
 #if defined(__ANDROID__)
 		// Android shaders are stored as assets in the apk
 		// So they need to be loaded via the asset manager
-		VkShaderModule loadShader(AAssetManager* assetManager, const char *fileName, VkDevice device)
-		{
+		VkShaderModule loadShader(AAssetManager* assetManager, const char *fileName, VkDevice device, ShaderFileType type)
+        {
+            assert(type == ShaderFileType::SPV);
+
+            if (type != ShaderFileType::SPV)
+            {
+                std::cerr << "On Android, only spv shaders can be loaded." << std::endl;
+            }
+
 			// Load shader from compressed asset
 			AAsset* asset = AAssetManager_open(assetManager, fileName, AASSET_MODE_STREAMING);
 			assert(asset);
@@ -354,39 +366,175 @@ namespace vks
 			return shaderModule;
 		}
 #else
-		VkShaderModule loadShader(const char *fileName, VkDevice device)
+
+		std::string getCompilationErrors(ComPtr<IDxcResult>& result)
 		{
-			std::ifstream is(fileName, std::ios::binary | std::ios::in | std::ios::ate);
+			std::string errors;
+			ComPtr<IDxcBlobWide> outputName = {};
+			ComPtr<IDxcBlobUtf8> dxcErrorInfo = {};
+			result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&dxcErrorInfo), &outputName);
 
-			if (is.is_open())
-			{
-				size_t size = is.tellg();
-				is.seekg(0, std::ios::beg);
-				char* shaderCode = new char[size];
-				is.read(shaderCode, size);
-				is.close();
-
-				assert(size > 0);
-
-				VkShaderModule shaderModule;
-				VkShaderModuleCreateInfo moduleCreateInfo{};
-				moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-				moduleCreateInfo.codeSize = size;
-				moduleCreateInfo.pCode = (uint32_t*)shaderCode;
-
-				VK_CHECK_RESULT(vkCreateShaderModule(device, &moduleCreateInfo, NULL, &shaderModule));
-
-				delete[] shaderCode;
-
-				return shaderModule;
+			if (dxcErrorInfo != nullptr) {
+				errors = std::string(dxcErrorInfo->GetStringPointer());
 			}
-			else
+
+			return errors;
+		}
+
+		std::string loadTextFile(const std::string& filePath)
+		{
+			std::ifstream file(filePath);
+			std::string content;
+
+			if (file.is_open()) {
+				// Read the entire file into a string
+				content.assign((std::istreambuf_iterator<char>(file)), (std::istreambuf_iterator<char>()));
+				file.close();
+			}
+			else {
+				std::cerr << "Failed to open file." << std::endl;
+			}
+			return content;
+		}
+
+		ComPtr<IDxcResult> compileHLSL(IDxcCompiler3* dxc_compiler, const std::string& hlslText, std::vector<LPCWSTR>& args)
+		{
+			ComPtr<IDxcResult> result;
+
+			DxcBuffer src_buffer;
+			src_buffer.Ptr = &*hlslText.begin();
+			src_buffer.Size = hlslText.size();
+			src_buffer.Encoding = 0;
+
+			dxc_compiler->Compile(&src_buffer, args.data(), args.size(), nullptr, IID_PPV_ARGS(&result));
+
+			return result;
+		}
+
+		void printErrors(std::string& errors)
+		{
+			if (!errors.empty())
 			{
-				std::cerr << "Error: Could not open shader file \"" << fileName << "\"" << "\n";
-				return VK_NULL_HANDLE;
+				std::cerr << "Errors : \n" << errors << std::endl;
 			}
 		}
+
+        LPCWSTR getDxcShaderStageArg(VkShaderStageFlagBits shaderStage)
+        {
+            switch (shaderStage)
+            {
+            case VK_SHADER_STAGE_VERTEX_BIT: return L"vs_6_0";
+            case VK_SHADER_STAGE_FRAGMENT_BIT: return L"ps_6_0";
+            case VK_SHADER_STAGE_COMPUTE_BIT: 
+            default: return L"cs_6_0";
+            }
+        }
+
+		VkShaderModule compileAndLoadHlslShader(const char* fileName, VkDevice device, VkShaderStageFlagBits shaderStage)
+		{
+            //OPTME : instance of ComPtr<IDxcCompiler3> should be kept and reused.
+			ComPtr<IDxcUtils> dxc_utils = {};
+			ComPtr<IDxcCompiler3> dxc_compiler = {};
+			DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxc_utils));
+			DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxc_compiler)); \
+
+			std::vector<LPCWSTR> args;
+			args.push_back(L"-Zpc");
+			args.push_back(L"-HV");
+			args.push_back(L"2021");
+			args.push_back(L"-T");
+            args.push_back(getDxcShaderStageArg(shaderStage));
+			args.push_back(L"-E");
+			args.push_back(L"main");
+			args.push_back(L"-spirv");
+			args.push_back(L"-fspv-target-env=vulkan1.1");
+
+			ComPtr<IDxcResult> result = compileHLSL(*dxc_compiler.GetAddressOf(), loadTextFile(fileName), args);
+			std::string errors = getCompilationErrors(result);
+			if (!errors.empty())
+			{
+				printErrors(errors);
+				return VK_NULL_HANDLE;
+			}
+			
+			HRESULT status = 0;
+			HRESULT hr = result->GetStatus(&status);
+			if (FAILED(hr) || FAILED(status))
+			{
+				throw std::runtime_error("IDxcResult::GetStatus failed with HRESULT = " + status);
+			}
+
+			ComPtr<IDxcBlob> shader_obj;
+			ComPtr<IDxcBlobWide> outputName = {};
+			hr = result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shader_obj), &outputName);
+			if (FAILED(hr) || FAILED(status))
+			{
+				throw std::runtime_error("IDxcResult::GetStatus failed with HRESULT = " + status);
+			}
+
+			const auto shader_size = shader_obj->GetBufferSize();
+			if (shader_size % sizeof(std::uint32_t) != 0)
+			{
+				throw std::runtime_error("Invalid SPIR-V buffer size");
+			}
+
+			const auto num_words = shader_size / sizeof(std::uint32_t);
+
+			VkShaderModule shaderModule;
+			VkShaderModuleCreateInfo moduleCreateInfo{};
+			moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+			moduleCreateInfo.codeSize = shader_obj->GetBufferSize();
+			moduleCreateInfo.pCode = (uint32_t*)shader_obj->GetBufferPointer();
+
+			VK_CHECK_RESULT(vkCreateShaderModule(device, &moduleCreateInfo, NULL, &shaderModule));
+
+			return shaderModule;
+		}
+
+        VkShaderModule loadShader(const char* fileName, VkDevice device)
+        {
+            std::ifstream is(fileName, std::ios::binary | std::ios::in | std::ios::ate);
+
+            if (is.is_open())
+            {
+                size_t size = is.tellg();
+                is.seekg(0, std::ios::beg);
+                char* shaderCode = new char[size];
+                is.read(shaderCode, size);
+                is.close();
+
+                assert(size > 0);
+
+                VkShaderModule shaderModule;
+                VkShaderModuleCreateInfo moduleCreateInfo{};
+                moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+                moduleCreateInfo.codeSize = size;
+                moduleCreateInfo.pCode = (uint32_t*)shaderCode;
+
+                VK_CHECK_RESULT(vkCreateShaderModule(device, &moduleCreateInfo, NULL, &shaderModule));
+
+                delete[] shaderCode;
+
+                return shaderModule;
+            }
+            else
+            {
+                std::cerr << "Error: Could not open shader file \"" << fileName << "\"" << "\n";
+                return VK_NULL_HANDLE;
+            }
+        }
 #endif
+
+        VkShaderModule loadShaderFromSource(const char* fileName, VkDevice device, ShadingLanguage shadingLang, VkShaderStageFlagBits shaderStage)
+        {
+            switch (shadingLang) {
+            case ShadingLanguage::HLSL:
+                return compileAndLoadHlslShader(fileName, device, shaderStage);
+            default:
+                std::cerr << "Error: runtime shader compilation is only supported for HLSL\n";
+                return VK_NULL_HANDLE;
+            }
+        }
 
 		bool fileExists(const std::string &filename)
 		{
@@ -395,9 +543,9 @@ namespace vks
 		}
 
 		uint32_t alignedSize(uint32_t value, uint32_t alignment)
-        {
-	        return (value + alignment - 1) & ~(alignment - 1);
-        }
+		{
+			return (value + alignment - 1) & ~(alignment - 1);
+		}
 
 	}
 }

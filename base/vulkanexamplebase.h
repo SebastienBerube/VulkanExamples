@@ -110,7 +110,7 @@ private:
 	void setupSwapChain();
 	void createCommandBuffers();
 	void destroyCommandBuffers();
-	std::string shaderDir = "glsl";
+    ShadingLanguage shadingLang = ShadingLanguage::GLSL;
 protected:
 	// Returns the path to the root of the glsl or hlsl shader directory.
 	std::string getShadersPath() const;
@@ -393,7 +393,7 @@ public:
 	virtual void prepare();
 
 	/** @brief Loads a SPIR-V shader file for the given shader stage */
-	VkPipelineShaderStageCreateInfo loadShader(std::string fileName, VkShaderStageFlagBits stage);
+	VkPipelineShaderStageCreateInfo loadShader(std::string fileName, VkShaderStageFlagBits stage, bool loadFromSource = false);
 
 	/** @brief Entry point for the main render loop */
 	void renderLoop();

@@ -60,6 +60,11 @@
 }
 #endif
 
+enum ShadingLanguage {
+    HLSL = 0x00000001,
+    GLSL = 0x00000002,
+};
+
 const std::string getAssetPath();
 
 namespace vks
@@ -125,6 +130,8 @@ namespace vks
 #else
 		VkShaderModule loadShader(const char *fileName, VkDevice device);
 #endif
+
+        VkShaderModule loadShaderFromSource(const char* fileName, VkDevice device, ShadingLanguage shadingLang, VkShaderStageFlagBits shaderStage);
 
 		/** @brief Checks if a file exists */
 		bool fileExists(const std::string &filename);
