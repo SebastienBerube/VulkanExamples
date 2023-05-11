@@ -571,11 +571,12 @@ public:
         VkComputePipelineCreateInfo computePipelineCreateInfo =
             vks::initializers::computePipelineCreateInfo(compute.pipelineLayout, 0);
 
+        bool isShaderSource = false;
         // One pipeline for each effect
         shaderNames = { "emboss", "edgedetect", "sharpen", "threshold", "blur" };
         for (auto& shaderName : shaderNames) {
             std::string fileName = getShadersPath() + "computeshadernetwork/" + shaderName + ".comp.spv";
-            computePipelineCreateInfo.stage = loadShader(fileName, VK_SHADER_STAGE_COMPUTE_BIT);
+            computePipelineCreateInfo.stage = loadShader(fileName, VK_SHADER_STAGE_COMPUTE_BIT, isShaderSource);
             VkPipeline pipeline;
             VK_CHECK_RESULT(vkCreateComputePipelines(device, pipelineCache, 1, &computePipelineCreateInfo, nullptr, &pipeline));
             compute.pipelines.push_back(pipeline);

@@ -16,6 +16,33 @@
 
 std::vector<const char*> VulkanExampleBase::args;
 
+
+namespace
+{
+    std::string fixShaderPath(const std::string& shaderPath, bool recompileShader)
+    {
+        if (recompileShader)
+        {
+            auto strLen = shaderPath.length();
+            if (strLen >= 4 && shaderPath.compare(strLen - 4, 4, ".spv") == 0)
+            {
+                std::cout << "WARNING: .spv extension found in shaderPath while expecting to shaders to be recompiled from source!\n";
+                return shaderPath.substr(0, strLen - 4);
+            }
+        }
+        else
+        {
+            auto strLen = shaderPath.length();
+            if (strLen >= 4 && shaderPath.compare(strLen - 4, 4, ".spv") != 0)
+            {
+                std::cout << "WARNING: .spv extension missing in shaderPath while expecting shaders to be in SPIR-V format!\n";
+                return shaderPath + ".spv";
+            }
+        }
+        return shaderPath;
+    }
+}
+
 VkResult VulkanExampleBase::createInstance(bool enableValidation)
 {
 	this->settings.validation = enableValidation;
@@ -184,7 +211,7 @@ void VulkanExampleBase::destroyCommandBuffers()
 
 std::string VulkanExampleBase::getShadersPath() const
 {
-    switch (shadingLang)
+    switch (settings.shadingLang)
     {
     case ShadingLanguage::GLSL:
         return getAssetPath() + "shaders/glsl/";
@@ -230,17 +257,21 @@ void VulkanExampleBase::prepare()
 	}
 }
 
-VkPipelineShaderStageCreateInfo VulkanExampleBase::loadShader(std::string fileName, VkShaderStageFlagBits stage, bool loadFromSource)
+
+
+VkPipelineShaderStageCreateInfo VulkanExampleBase::loadShader(std::string fileName, VkShaderStageFlagBits stage, bool recompileShader)
 {
 	VkPipelineShaderStageCreateInfo shaderStage = {};
 	shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	shaderStage.stage = stage;
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
-    assert(!loadFromSource);
+    assert(!recompileShader);
 	shaderStage.module = vks::tools::loadShader(androidApp->activity->assetManager, fileName.c_str(), device);
 #else
-    shaderStage.module = loadFromSource ? vks::tools::loadShaderFromSource(fileName.c_str(), device, shadingLang, stage)
-                                        : vks::tools::loadShader(fileName.c_str(), device);
+    std::string validatedFileName = fixShaderPath(fileName, recompileShader);
+
+    shaderStage.module = recompileShader ? vks::tools::loadShaderFromSource(validatedFileName.c_str(), device, settings.shadingLang, stage)
+                                         : vks::tools::loadShader(validatedFileName.c_str(), device);
 #endif
 	shaderStage.pName = "main";
 	assert(shaderStage.module != VK_NULL_HANDLE);
@@ -813,15 +844,18 @@ VulkanExampleBase::VulkanExampleBase(bool enableValidation)
 	if (commandLineParser.isSet("shaders")) {
 		std::string value = commandLineParser.getValueAsString("shaders", "glsl");
         if (value == "glsl") {
-            shadingLang = ShadingLanguage::GLSL;
+            settings.shadingLang = ShadingLanguage::GLSL;
         }
         else if (value == "hlsl") {
-            shadingLang = ShadingLanguage::HLSL;
+            settings.shadingLang = ShadingLanguage::HLSL;
         }
         else {
             std::cerr << "Shader type must be one of 'glsl' or 'hlsl' or 'spv'\n";
         }
 	}
+    if (commandLineParser.isSet("recompileshaders")) {
+        settings.compileShaders = true;
+    }
 	if (commandLineParser.isSet("benchmark")) {
 		benchmark.active = true;
 		vks::tools::errorModeSilent = true;
@@ -2948,6 +2982,7 @@ CommandLineParser::CommandLineParser()
 	add("width", { "-w", "--width" }, 1, "Set window width");
 	add("height", { "-h", "--height" }, 1, "Set window height");
 	add("shaders", { "-s", "--shaders" }, 1, "Select shader type to use (glsl or hlsl)");
+    add("recompileshaders", { "-r", "--recompile" }, 0, "Recompile shaders from source files");
 	add("gpuselection", { "-g", "--gpu" }, 1, "Select GPU to run on");
 	add("gpulist", { "-gl", "--listgpus" }, 0, "Display a list of available Vulkan devices");
 	add("benchmark", { "-b", "--benchmark" }, 0, "Run example in benchmark mode");

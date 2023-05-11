@@ -110,7 +110,6 @@ private:
 	void setupSwapChain();
 	void createCommandBuffers();
 	void destroyCommandBuffers();
-    ShadingLanguage shadingLang = ShadingLanguage::GLSL;
 protected:
 	// Returns the path to the root of the glsl or hlsl shader directory.
 	std::string getShadersPath() const;
@@ -201,6 +200,10 @@ public:
 		bool vsync = false;
 		/** @brief Enable UI overlay */
 		bool overlay = true;
+        /** @brief Set to true to recompile shaders from source when running the app */
+        bool compileShaders = false;
+        /** @brief Shading language for compiling source and locating shader folders */
+        ShadingLanguage shadingLang = ShadingLanguage::GLSL;
 	} settings;
 
 	VkClearColorValue defaultClearColor = { { 0.025f, 0.025f, 0.025f, 1.0f } };
