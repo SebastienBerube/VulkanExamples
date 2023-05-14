@@ -127,7 +127,7 @@ public:
         imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
         imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         // Image will be sampled in the fragment shader and used as storage target in the compute shader
-        imageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+        imageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         imageCreateInfo.flags = 0;
         // If compute and graphics queue family indices differ, we create an image that can be shared between them
         // This can result in worse performance than exclusive sharing mode, but save some synchronization to keep the sample simple
@@ -321,7 +321,7 @@ public:
             vkCmdPipelineBarrier(
                 compute.commandBuffer,
                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                 0,
                 0, nullptr,
                 0, nullptr,
