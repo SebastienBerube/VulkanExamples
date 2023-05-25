@@ -21,6 +21,7 @@ class VulkanExample : public VulkanExampleBase
 {
 private:
 	vks::Texture2D textureColorMap;
+    vks::Texture2D textureColorMap_noSampler;
 	vks::Texture2D textureComputeTarget;
 public:
 	struct {
@@ -99,7 +100,8 @@ public:
 		uniformBufferVS.destroy();
 
 		textureColorMap.destroy();
-		textureComputeTarget.destroy();
+        textureColorMap_noSampler.destroy();
+        textureComputeTarget.destroy();
 	}
 
 	// Prepare a texture target that is used to store compute shader calculations
@@ -198,8 +200,10 @@ public:
 	void loadAssets()
 	{
 		textureColorMap.loadFromFile(getAssetPath() + "textures/vulkan_11_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL);
-	}
-
+        bool hasSampler = true;
+        bool hasView = true;
+        textureColorMap_noSampler.loadFromFile(getAssetPath() + "textures/vulkan_11_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL, false, !hasSampler, !hasView);
+    }
 	void buildCommandBuffers()
 	{
 		VkCommandBufferBeginInfo cmdBufInfo = vks::initializers::commandBufferBeginInfo();
@@ -363,6 +367,8 @@ public:
 			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2),
 			// Compute pipelines uses a storage image for image reads and writes
 			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2),
+            vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2)
+            
 		};
 		VkDescriptorPoolCreateInfo descriptorPoolInfo = vks::initializers::descriptorPoolCreateInfo(poolSizes, 3);
 		VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
@@ -498,6 +504,13 @@ public:
 		VK_CHECK_RESULT(vkQueueWaitIdle(queue));	
 	}
 
+    VkDescriptorType GetComputeShaderDescriptorType()
+    {
+        //return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+        return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        //return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    }
+
 	void prepareCompute()
 	{
 		// Get a compute queue from the device
@@ -508,7 +521,8 @@ public:
 
 		std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
 			// Binding 0: Input image (read-only)
-			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0),
+			//vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 0),
+            vks::initializers::descriptorSetLayoutBinding(GetComputeShaderDescriptorType(), VK_SHADER_STAGE_COMPUTE_BIT, 0),
 			// Binding 1: Output image (write)
 			vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1),
 		};
@@ -526,7 +540,7 @@ public:
 
 		VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &compute.descriptorSet));
 		std::vector<VkWriteDescriptorSet> computeWriteDescriptorSets = {
-			vks::initializers::writeDescriptorSet(compute.descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 0, &textureColorMap.descriptor),
+			vks::initializers::writeDescriptorSet(compute.descriptorSet, GetComputeShaderDescriptorType(), 0, &textureColorMap_noSampler.descriptor),
 			vks::initializers::writeDescriptorSet(compute.descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, &textureComputeTarget.descriptor)
 		};
 		vkUpdateDescriptorSets(device, computeWriteDescriptorSets.size(), computeWriteDescriptorSets.data(), 0, NULL);
@@ -536,10 +550,10 @@ public:
 			vks::initializers::computePipelineCreateInfo(compute.pipelineLayout, 0);
 
 		// One pipeline for each effect
-		shaderNames = { "emboss", "edgedetect", "sharpen" };
+        shaderNames = { "emboss" };// , "emboss", "edgedetect", "sharpen"};
 		for (auto& shaderName : shaderNames) {
 			std::string fileName = getShadersPath() + "computeshader/" + shaderName + ".comp.spv";
-			computePipelineCreateInfo.stage = loadShader(fileName, VK_SHADER_STAGE_COMPUTE_BIT);
+			computePipelineCreateInfo.stage = loadShader(fileName, VK_SHADER_STAGE_COMPUTE_BIT, settings.compileShaders);
 			VkPipeline pipeline;
 			VK_CHECK_RESULT(vkCreateComputePipelines(device, pipelineCache, 1, &computePipelineCreateInfo, nullptr, &pipeline));
 			compute.pipelines.push_back(pipeline);

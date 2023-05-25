@@ -19,9 +19,13 @@ namespace vks
 
 	void Texture::destroy()
 	{
-		vkDestroyImageView(device->logicalDevice, view, nullptr);
+        if (view != VK_NULL_HANDLE)
+        {
+            vkDestroyImageView(device->logicalDevice, view, nullptr);
+        }
+
 		vkDestroyImage(device->logicalDevice, image, nullptr);
-		if (sampler)
+		if (sampler != VK_NULL_HANDLE)
 		{
 			vkDestroySampler(device->logicalDevice, sampler, nullptr);
 		}
@@ -64,7 +68,7 @@ namespace vks
 	* @param (Optional) forceLinear Force linear tiling (not advised, defaults to false)
 	*
 	*/
-	void Texture2D::loadFromFile(std::string filename, VkFormat format, vks::VulkanDevice *device, VkQueue copyQueue, VkImageUsageFlags imageUsageFlags, VkImageLayout imageLayout, bool forceLinear)
+	void Texture2D::loadFromFile(std::string filename, VkFormat format, vks::VulkanDevice *device, VkQueue copyQueue, VkImageUsageFlags imageUsageFlags, VkImageLayout imageLayout, bool forceLinear, bool noSampler, bool noImageView)
 	{
 		ktxTexture* ktxTexture;
 		ktxResult result = loadKTXFile(filename, &ktxTexture);
@@ -291,41 +295,49 @@ namespace vks
 
 		ktxTexture_Destroy(ktxTexture);
 
-		// Create a default sampler
-		VkSamplerCreateInfo samplerCreateInfo = {};
-		samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
-		samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
-		samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerCreateInfo.mipLodBias = 0.0f;
-		samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
-		samplerCreateInfo.minLod = 0.0f;
-		// Max level-of-detail should match mip level count
-		samplerCreateInfo.maxLod = (useStaging) ? (float)mipLevels : 0.0f;
-		// Only enable anisotropic filtering if enabled on the device
-		samplerCreateInfo.maxAnisotropy = device->enabledFeatures.samplerAnisotropy ? device->properties.limits.maxSamplerAnisotropy : 1.0f;
-		samplerCreateInfo.anisotropyEnable = device->enabledFeatures.samplerAnisotropy;
-		samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-		VK_CHECK_RESULT(vkCreateSampler(device->logicalDevice, &samplerCreateInfo, nullptr, &sampler));
-
-		// Create image view
+        sampler = VK_NULL_HANDLE;
+        if(!noSampler)
+        {
+		    // Create a default sampler
+		    VkSamplerCreateInfo samplerCreateInfo = {};
+		    samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		    samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+		    samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+		    samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		    samplerCreateInfo.mipLodBias = 0.0f;
+		    samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
+		    samplerCreateInfo.minLod = 0.0f;
+		    // Max level-of-detail should match mip level count
+		    samplerCreateInfo.maxLod = (useStaging) ? (float)mipLevels : 0.0f;
+		    // Only enable anisotropic filtering if enabled on the device
+		    samplerCreateInfo.maxAnisotropy = device->enabledFeatures.samplerAnisotropy ? device->properties.limits.maxSamplerAnisotropy : 1.0f;
+		    samplerCreateInfo.anisotropyEnable = device->enabledFeatures.samplerAnisotropy;
+		    samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+		    VK_CHECK_RESULT(vkCreateSampler(device->logicalDevice, &samplerCreateInfo, nullptr, &sampler));
+        }
+		
+        // Create image view
 		// Textures are not directly accessed by the shaders and
 		// are abstracted by image views containing additional
 		// information and sub resource ranges
-		VkImageViewCreateInfo viewCreateInfo = {};
-		viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewCreateInfo.format = format;
-		viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-		viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-		// Linear tiling usually won't support mip maps
-		// Only set mip map count if optimal tiling is used
-		viewCreateInfo.subresourceRange.levelCount = (useStaging) ? mipLevels : 1;
-		viewCreateInfo.image = image;
-		VK_CHECK_RESULT(vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view));
+        view = VK_NULL_HANDLE;
+        if (!noImageView)
+        {
+            VkImageViewCreateInfo viewCreateInfo = {};
+            viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            viewCreateInfo.format = format;
+            viewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+            viewCreateInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+            // Linear tiling usually won't support mip maps
+            // Only set mip map count if optimal tiling is used
+            viewCreateInfo.subresourceRange.levelCount = (useStaging) ? mipLevels : 1;
+            viewCreateInfo.image = image;
+            VK_CHECK_RESULT(vkCreateImageView(device->logicalDevice, &viewCreateInfo, nullptr, &view));
+        }
 
 		// Update descriptor image info member that can be used for setting up descriptor sets
 		updateDescriptor();
