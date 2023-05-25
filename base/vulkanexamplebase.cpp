@@ -259,19 +259,19 @@ void VulkanExampleBase::prepare()
 
 
 
-VkPipelineShaderStageCreateInfo VulkanExampleBase::loadShader(std::string fileName, VkShaderStageFlagBits stage, bool recompileShader)
+VkPipelineShaderStageCreateInfo VulkanExampleBase::loadShader(std::string fileName, VkShaderStageFlagBits stage)
 {
-	VkPipelineShaderStageCreateInfo shaderStage = {};
+    VkPipelineShaderStageCreateInfo shaderStage = {};
 	shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	shaderStage.stage = stage;
 #if defined(VK_USE_PLATFORM_ANDROID_KHR)
-    assert(!recompileShader);
+    assert(!settings.compileShaders); //Not yet implemented for Android.
 	shaderStage.module = vks::tools::loadShader(androidApp->activity->assetManager, fileName.c_str(), device);
 #else
-    std::string validatedFileName = fixShaderPath(fileName, recompileShader);
+    std::string validatedFileName = fixShaderPath(fileName, settings.compileShaders);
 
-    shaderStage.module = recompileShader ? vks::tools::loadShaderFromSource(validatedFileName.c_str(), device, settings.shadingLang, stage)
-                                         : vks::tools::loadShader(validatedFileName.c_str(), device);
+    shaderStage.module = settings.compileShaders ? vks::tools::loadShaderFromSource(validatedFileName.c_str(), device, settings.shadingLang, stage)
+                                                 : vks::tools::loadShader(validatedFileName.c_str(), device);
 #endif
 	shaderStage.pName = "main";
 	assert(shaderStage.module != VK_NULL_HANDLE);

@@ -396,7 +396,7 @@ public:
 	virtual void prepare();
 
 	/** @brief Loads a SPIR-V shader file for the given shader stage */
-	VkPipelineShaderStageCreateInfo loadShader(std::string fileName, VkShaderStageFlagBits stage, bool loadFromSource = false);
+	VkPipelineShaderStageCreateInfo loadShader(std::string fileName, VkShaderStageFlagBits stage);
 
 	/** @brief Entry point for the main render loop */
 	void renderLoop();
