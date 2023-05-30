@@ -421,11 +421,14 @@ namespace vks
 
         LPCWSTR getDxcShaderStageArg(VkShaderStageFlagBits shaderStage)
         {
+            //https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-models
+
             switch (shaderStage)
             {
             case VK_SHADER_STAGE_VERTEX_BIT: return L"vs_6_0";
             case VK_SHADER_STAGE_FRAGMENT_BIT: return L"ps_6_0";
-            case VK_SHADER_STAGE_COMPUTE_BIT: 
+            case VK_SHADER_STAGE_GEOMETRY_BIT: return L"gs_6_0";
+            case VK_SHADER_STAGE_COMPUTE_BIT:
             default: return L"cs_6_0";
             }
         }
