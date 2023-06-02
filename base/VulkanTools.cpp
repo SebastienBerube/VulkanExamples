@@ -421,14 +421,48 @@ namespace vks
 
         LPCWSTR getDxcShaderStageArg(VkShaderStageFlagBits shaderStage)
         {
-            //https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-models
+            /*
+                https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-models
+
+                See also: https ://github.com/SaschaWillems/Vulkan/commit/73cbc2900a1eb533da2e34171071a63d1b761635
+                Commit: 
+                    Sascha Willems 26 Mar 2023 04:19 : 29 - 04 : 00
+                    Compile GLSL and HLSL shaders using CMake
+                    Work - in - progress
+                    
+                cmake sample below:
+
+                    if (${ FILE_EXT } STREQUAL ".vert")
+                    set(PROFILE "vs_6_1")
+                    elseif(${ FILE_EXT } STREQUAL ".frag")
+                    set(PROFILE "ps_6_1")
+                    elseif(${ FILE_EXT } STREQUAL ".comp")
+                    set(PROFILE "cs_6_1")
+                    elseif(${ FILE_EXT } STREQUAL ".geom")
+                    set(PROFILE "gs_6_1")
+                    elseif(${ FILE_EXT } STREQUAL ".tesc")
+                    set(PROFILE "hs_6_1")
+                    elseif(${ FILE_EXT } STREQUAL ".tese")
+                    set(PROFILE "ds_6_1")
+                    # elseif(${ FILE_EXT } STREQUAL ".rgen")
+                    # @todo
+                    # set(PROFILE "lib_6_3")
+                    endif()
+                    # message(${ DXC_BINARY } - spirv - T ${ PROFILE } - E main ${ HLSL } - Fo ${ SPIRV })
+                    set(SPIRV "${SHADER_DIR_HLSL}/${FILE_NAME}.spv")
+                    add_custom_command(OUTPUT ${ SPIRV } COMMAND ${ DXC_BINARY } - spirv - T ${ PROFILE } - E main ${ HLSL } - Fo ${ SPIRV } DEPENDS ${ HLSL })
+                    list(APPEND SPIRV_BINARY_FILES ${ SPIRV })
+                    endforeach(HLSL)
+            */
 
             switch (shaderStage)
             {
+            case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT: return L"hs_6_0";
+            case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT: return L"ds_6_0";
             case VK_SHADER_STAGE_VERTEX_BIT: return L"vs_6_0";
             case VK_SHADER_STAGE_FRAGMENT_BIT: return L"ps_6_0";
             case VK_SHADER_STAGE_GEOMETRY_BIT: return L"gs_6_0";
-            case VK_SHADER_STAGE_COMPUTE_BIT:
+            case VK_SHADER_STAGE_COMPUTE_BIT: return L"cs_6_0";
             default: return L"cs_6_0";
             }
         }
