@@ -1,8 +1,8 @@
 struct VSInput
 {
-[[vk::location(0)]] float3 Pos : POSITION0;
-[[vk::location(1)]] float3 Normal : NORMAL0;
-[[vk::location(2)]] float3 Color : COLOR0;
+	[[vk::location(0)]] float3 Pos : POSITION0;
+	[[vk::location(1)]] float3 Normal : NORMAL0;
+	[[vk::location(2)]] float3 Color : COLOR0;
 };
 
 struct UBO
@@ -17,10 +17,10 @@ cbuffer ubo : register(b0) { UBO ubo; }
 struct VSOutput
 {
 	float4 Pos : SV_POSITION;
-[[vk::location(0)]] float3 Normal : NORMAL0;
-[[vk::location(1)]] float3 Color : COLOR0;
-[[vk::location(2)]] float3 ViewVec : TEXCOORD0;
-[[vk::location(3)]] float3 LightVec : TEXCOORD1;
+	[[vk::location(0)]] float3 Normal : NORMAL0;
+	[[vk::location(1)]] float3 Color : COLOR0;
+	[[vk::location(2)]] float3 ViewVec : TEXCOORD0;
+	[[vk::location(3)]] float3 LightVec : TEXCOORD1;
 };
 
 VSOutput main(VSInput input)
@@ -43,5 +43,6 @@ VSOutput main(VSInput input)
 	output.LightVec = lPos - pos.xyz; //Same as glsl version, but weird (because pos was multiplied twice)
 	output.ViewVec = - pos.xyz; //Same as glsl version, but weird (is pos in view space?)
 	
-	outViewVec = -pos.xyz;
+	//outViewVec = -pos.xyz;
+    return output;
 }

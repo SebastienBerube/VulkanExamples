@@ -1,61 +1,63 @@
-#version 450
-layout (location = 0) in vec3 inNormal;
-layout (location = 1) in vec3 inColor;
-layout (location = 2) in vec3 inViewVec;
-layout (location = 3) in vec3 inLightVec;
-layout (location = 4) flat in vec3 inFlatNormal;
-
-layout (constant_id = 0) const int LIGHTING_MODEL = 0;
-
-layout (location = 0) out vec4 outFragColor;
-
-void main() 
+struct VSOutput
 {
+	float4 Pos : SV_POSITION;
+	[[vk::location(0)]] float3 Normal : NORMAL0;
+	[[vk::location(1)]] float3 Color : COLOR0;
+	[[vk::location(2)]] float3 ViewVec : TEXCOORD0;
+	[[vk::location(3)]] float3 LightVec : TEXCOORD1;
+};
+
+[[vk::constant_id(0)]] const int LIGHTING_MODEL = 0;
+
+float4 main(VSOutput In) : SV_TARGET
+{
+	float4 outColor = float4(0,0,0,1);
 	switch (LIGHTING_MODEL) {
-		case 0: // Phong			
+		case 0: // Phong
 		{
-			vec3 ambient = inColor * vec3(0.25);
-			vec3 N = normalize(inNormal);
-			vec3 L = normalize(inLightVec);
-			vec3 V = normalize(inViewVec);
-			vec3 R = reflect(-L, N);
-			vec3 diffuse = max(dot(N, L), 0.0) * inColor;
-			vec3 specular = pow(max(dot(R, V), 0.0), 32.0) * vec3(0.75);
-			outFragColor = vec4(ambient + diffuse * 1.75 + specular, 1.0);		
+			float3 ambient = In.Color * float3(0.25,0.25,0.25);
+			float3 N = normalize(In.Normal);
+			float3 L = normalize(In.LightVec);
+			float3 V = normalize(In.ViewVec);
+			float3 R = reflect(-L, N);
+			float3 diffuse = max(dot(N, L), 0.0) * In.Color;
+			float3 specular = pow(max(dot(R, V), 0.0), 32.0) * float3(1,1,1)*0.75;
+			outColor = float4(ambient + diffuse * 1.75 + specular, 1.0);		
 			break;
 		}
 		case 1: // Toon
 		{
 
-			vec3 N = normalize(inNormal);
-			vec3 L = normalize(inLightVec);
+			float3 N = normalize(In.Normal);
+			float3 L = normalize(In.LightVec);
 			float intensity = dot(N,L);
-			vec3 color;
+			float3 color;
 			if (intensity > 0.98)
-				color = inColor * 1.5;
+				color = In.Color * 1.5;
 			else if  (intensity > 0.9)
-				color = inColor * 1.0;
+				color = In.Color * 1.0;
 			else if (intensity > 0.5)
-				color = inColor * 0.6;
+				color = In.Color * 0.6;
 			else if (intensity > 0.25)
-				color = inColor * 0.4;
+				color = In.Color * 0.4;
 			else
-				color = inColor * 0.2;
-			outFragColor.rgb = color;
+				color = In.Color * 0.2;
+			outColor = float4(color,1.0);
 			break;
 		}
 		case 2: // No shading
 		{
-			outFragColor.rgb = inColor;
+			outColor = float4(In.Color,1.0);
 			break;
 		}
 		case 3: // Greyscale
 		{
-			outFragColor.rgb = vec3(dot(inColor.rgb, vec3(0.299, 0.587, 0.114)));
+			outColor = float4(float3(1,1,1)*dot(In.Color.rgb, float3(0.299, 0.587, 0.114)),1.0);
 			break;
 		}
 	}
 
 	// Scene is dark, brigthen up a bit
-	outFragColor.rgb *= 1.25;
+	outColor.rgb *= 1.25;
+	return outColor;
 }
