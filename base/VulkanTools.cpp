@@ -518,20 +518,23 @@ namespace vks
             return shader_obj;
         }
 
-        VkShaderModuleCreateInfo compileHlsl(const char* fileName, VkDevice device, VkShaderStageFlagBits shaderStage)
+        void compileHlsl(const char* fileName, VkDevice device, VkShaderStageFlagBits shaderStage, size_t& shaderCodeSize, uint32_t*& shaderCode)
         {
-            auto shader_obj = compileHlslInternal(fileName, device, shaderStage);
+            auto shaderObj = compileHlslInternal(fileName, device, shaderStage);
 
-            VkShaderModuleCreateInfo moduleCreateInfo{};
-            moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-            moduleCreateInfo.codeSize = shader_obj->GetBufferSize();
-            moduleCreateInfo.pCode = new uint32_t[moduleCreateInfo.codeSize]; //TODO : Delete this to prevent leaks.
+            shaderCodeSize = shaderObj->GetBufferSize();
 
-            size_t num_words = sizeof(std::uint32_t) * moduleCreateInfo.codeSize;
+            const size_t ELEM_SIZE = sizeof(std::uint32_t);
 
-            memcpy_s((char*)moduleCreateInfo.pCode, num_words, shader_obj->GetBufferPointer(), num_words);
+            if (shaderCodeSize % ELEM_SIZE != 0)
+            {
+                throw std::runtime_error("Invalid buffer size: size in bytes should be a multiple of sizeof(uint32_t)");
+            }
 
-            return moduleCreateInfo;
+            shaderCode = new uint32_t[shaderCodeSize/ELEM_SIZE];
+
+            //memcpy_s((char*)shaderCode, shaderCodeSize, shaderObj->GetBufferPointer(), shaderCodeSize);
+            std::memcpy(shaderCode, shaderObj->GetBufferPointer(), shaderCodeSize);
         }
 
 		VkShaderModule compileAndLoadHlslShader(const char* fileName, VkDevice device, VkShaderStageFlagBits shaderStage)

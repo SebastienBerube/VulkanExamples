@@ -223,10 +223,7 @@ public:
 
         if (settings.compileShaders)
         {
-            auto info = vks::tools::compileHlsl(validatedFileName.c_str(), device, shaderStage);
-
-            shaderInfo.code = const_cast<uint32_t*>(info.pCode); //TODO: Remove return value VkShaderModuleCreateInfo and use func args for code size and pointer (refs) instead.
-            shaderInfo.size = info.codeSize;
+            vks::tools::compileHlsl(validatedFileName.c_str(), device, shaderStage, shaderInfo.size, shaderInfo.code);
             return true;
         }
         else
