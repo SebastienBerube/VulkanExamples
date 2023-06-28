@@ -230,11 +230,11 @@ public:
         {
             std::ifstream is(fileName, std::ios::binary | std::ios::in | std::ios::ate);
 
-            if (is.is_open())
+            if (is.is_open() && (is.tellg() % sizeof(uint32_t) == 0))
             {
                 shaderInfo.size = is.tellg();
                 is.seekg(0, std::ios::beg);
-                shaderInfo.code = new uint32_t[shaderInfo.size];
+                shaderInfo.code = new uint32_t[shaderInfo.size/ sizeof(uint32_t)];
                 is.read(reinterpret_cast<char*>(shaderInfo.code), shaderInfo.size);
                 is.close();
                 return true;
@@ -295,6 +295,8 @@ public:
 
 			// @todo: we can skip the pipeline shader module info and directly consume the shader module
 			ShaderInfo shaderInfo{};
+            shaderInfo.size = 0;
+            shaderInfo.code = nullptr;
 			loadShaderFile(getShadersPath() + "graphicspipelinelibrary/shared.vert.spv", shaderInfo, VK_SHADER_STAGE_VERTEX_BIT);
 
 			VkShaderModuleCreateInfo shaderModuleCI{};
@@ -320,6 +322,8 @@ public:
 			pipelineLibraryCI.pViewportState = &viewportState;
 			pipelineLibraryCI.pRasterizationState = &rasterizationState;
 			VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineLibraryCI, nullptr, &pipelineLibrary.preRasterizationShaders));
+
+            delete[] shaderInfo.code;
 		}
 
 		// Create a pipeline library for the fragment output interface
