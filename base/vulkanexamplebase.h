@@ -367,6 +367,8 @@ public:
 #else
 	void setupWindow();
 #endif
+    /** @brief (Virtual) formats the shader path according to command-line settings*/
+    std::string fixShaderPath(const std::string& shaderPath, bool recompileShader);
 	/** @brief (Virtual) Creates the application wide Vulkan instance */
 	virtual VkResult createInstance(bool enableValidation);
 	/** @brief (Pure virtual) Render function to be implemented by the sample application */

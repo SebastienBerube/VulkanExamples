@@ -17,30 +17,28 @@
 std::vector<const char*> VulkanExampleBase::args;
 
 
-namespace
+
+std::string VulkanExampleBase::fixShaderPath(const std::string& shaderPath, bool recompileShader)
 {
-    std::string fixShaderPath(const std::string& shaderPath, bool recompileShader)
+    if (recompileShader)
     {
-        if (recompileShader)
+        auto strLen = shaderPath.length();
+        if (strLen >= 4 && shaderPath.compare(strLen - 4, 4, ".spv") == 0)
         {
-            auto strLen = shaderPath.length();
-            if (strLen >= 4 && shaderPath.compare(strLen - 4, 4, ".spv") == 0)
-            {
-                std::cout << "WARNING: .spv extension found in shaderPath while expecting to shaders to be recompiled from source!\n";
-                return shaderPath.substr(0, strLen - 4);
-            }
+            std::cout << "WARNING: .spv extension found in shaderPath while expecting to shaders to be recompiled from source!\n";
+            return shaderPath.substr(0, strLen - 4);
         }
-        else
-        {
-            auto strLen = shaderPath.length();
-            if (strLen >= 4 && shaderPath.compare(strLen - 4, 4, ".spv") != 0)
-            {
-                std::cout << "WARNING: .spv extension missing in shaderPath while expecting shaders to be in SPIR-V format!\n";
-                return shaderPath + ".spv";
-            }
-        }
-        return shaderPath;
     }
+    else
+    {
+        auto strLen = shaderPath.length();
+        if (strLen >= 4 && shaderPath.compare(strLen - 4, 4, ".spv") != 0)
+        {
+            std::cout << "WARNING: .spv extension missing in shaderPath while expecting shaders to be in SPIR-V format!\n";
+            return shaderPath + ".spv";
+        }
+    }
+    return shaderPath;
 }
 
 VkResult VulkanExampleBase::createInstance(bool enableValidation)
