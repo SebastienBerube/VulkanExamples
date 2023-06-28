@@ -131,6 +131,8 @@ namespace vks
 		VkShaderModule loadShader(const char *fileName, VkDevice device);
 #endif
 
+        VkShaderModuleCreateInfo compileHlsl(const char* fileName, VkDevice device, VkShaderStageFlagBits shaderStage);
+
         VkShaderModule loadShaderFromSource(const char* fileName, VkDevice device, ShadingLanguage shadingLang, VkShaderStageFlagBits shaderStage);
 
 		/** @brief Checks if a file exists */

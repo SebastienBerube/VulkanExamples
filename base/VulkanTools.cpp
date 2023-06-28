@@ -467,55 +467,76 @@ namespace vks
             }
         }
 
+        ComPtr<IDxcBlob> compileHlslInternal(const char* fileName, VkDevice device, VkShaderStageFlagBits shaderStage)
+        {
+            //OPTME : instance of ComPtr<IDxcCompiler3> should be kept and reused.
+            ComPtr<IDxcUtils> dxc_utils = {};
+            ComPtr<IDxcCompiler3> dxc_compiler = {};
+            DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxc_utils));
+            DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxc_compiler)); \
+
+            std::vector<LPCWSTR> args;
+            args.push_back(L"-Zpc");
+            args.push_back(L"-HV");
+            args.push_back(L"2021");
+            args.push_back(L"-T");
+            args.push_back(getDxcShaderStageArg(shaderStage));
+            args.push_back(L"-E");
+            args.push_back(L"main");
+            args.push_back(L"-spirv");
+            args.push_back(L"-fspv-target-env=vulkan1.1");
+
+            ComPtr<IDxcResult> result = compileHLSL(*dxc_compiler.GetAddressOf(), loadTextFile(fileName), args);
+            std::string errors = getCompilationErrors(result);
+            if (!errors.empty())
+            {
+                printErrors(errors);
+                return VK_NULL_HANDLE;
+            }
+
+            HRESULT status = 0;
+            HRESULT hr = result->GetStatus(&status);
+            if (FAILED(hr) || FAILED(status))
+            {
+                throw std::runtime_error("IDxcResult::GetStatus failed with HRESULT = " + status);
+            }
+
+            ComPtr<IDxcBlob> shader_obj;
+            ComPtr<IDxcBlobWide> outputName = {};
+            hr = result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shader_obj), &outputName);
+            if (FAILED(hr) || FAILED(status))
+            {
+                throw std::runtime_error("IDxcResult::GetStatus failed with HRESULT = " + status);
+            }
+
+            const auto shader_size = shader_obj->GetBufferSize();
+            if (shader_size % sizeof(std::uint32_t) != 0)
+            {
+                throw std::runtime_error("Invalid SPIR-V buffer size");
+            }
+
+            return shader_obj;
+        }
+
+        VkShaderModuleCreateInfo compileHlsl(const char* fileName, VkDevice device, VkShaderStageFlagBits shaderStage)
+        {
+            auto shader_obj = compileHlslInternal(fileName, device, shaderStage);
+
+            VkShaderModuleCreateInfo moduleCreateInfo{};
+            moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+            moduleCreateInfo.codeSize = shader_obj->GetBufferSize();
+            moduleCreateInfo.pCode = new uint32_t[moduleCreateInfo.codeSize]; //TODO : Delete this to prevent leaks.
+
+            size_t num_words = sizeof(std::uint32_t) * moduleCreateInfo.codeSize;
+
+            memcpy_s((char*)moduleCreateInfo.pCode, num_words, shader_obj->GetBufferPointer(), num_words);
+
+            return moduleCreateInfo;
+        }
+
 		VkShaderModule compileAndLoadHlslShader(const char* fileName, VkDevice device, VkShaderStageFlagBits shaderStage)
 		{
-            //OPTME : instance of ComPtr<IDxcCompiler3> should be kept and reused.
-			ComPtr<IDxcUtils> dxc_utils = {};
-			ComPtr<IDxcCompiler3> dxc_compiler = {};
-			DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxc_utils));
-			DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxc_compiler)); \
-
-			std::vector<LPCWSTR> args;
-			args.push_back(L"-Zpc");
-			args.push_back(L"-HV");
-			args.push_back(L"2021");
-			args.push_back(L"-T");
-            args.push_back(getDxcShaderStageArg(shaderStage));
-			args.push_back(L"-E");
-			args.push_back(L"main");
-			args.push_back(L"-spirv");
-			args.push_back(L"-fspv-target-env=vulkan1.1");
-
-			ComPtr<IDxcResult> result = compileHLSL(*dxc_compiler.GetAddressOf(), loadTextFile(fileName), args);
-			std::string errors = getCompilationErrors(result);
-			if (!errors.empty())
-			{
-				printErrors(errors);
-				return VK_NULL_HANDLE;
-			}
-			
-			HRESULT status = 0;
-			HRESULT hr = result->GetStatus(&status);
-			if (FAILED(hr) || FAILED(status))
-			{
-				throw std::runtime_error("IDxcResult::GetStatus failed with HRESULT = " + status);
-			}
-
-			ComPtr<IDxcBlob> shader_obj;
-			ComPtr<IDxcBlobWide> outputName = {};
-			hr = result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shader_obj), &outputName);
-			if (FAILED(hr) || FAILED(status))
-			{
-				throw std::runtime_error("IDxcResult::GetStatus failed with HRESULT = " + status);
-			}
-
-			const auto shader_size = shader_obj->GetBufferSize();
-			if (shader_size % sizeof(std::uint32_t) != 0)
-			{
-				throw std::runtime_error("Invalid SPIR-V buffer size");
-			}
-
-			const auto num_words = shader_size / sizeof(std::uint32_t);
+            auto shader_obj = compileHlslInternal(fileName, device, shaderStage);
 
 			VkShaderModule shaderModule;
 			VkShaderModuleCreateInfo moduleCreateInfo{};
