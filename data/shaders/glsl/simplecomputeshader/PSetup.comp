@@ -1,0 +1,22 @@
+﻿// W (velocity field; working)
+Texture2D<float2> W_in;
+
+// Div W
+RWTexture2D<float> DivW_out;
+
+// P (pressure field)
+RWTexture2D<float> P_out;
+
+
+// Setup for Project step (divW calculation)
+[numthreads(8, 8, 1)]
+void PSetup(uint2 tid : SV_DispatchThreadID)
+{
+    uint2 dim;
+    W_in.GetDimensions(dim.x, dim.y);
+
+    DivW_out[tid] = (W_in[tid + int2(1, 0)].x - W_in[tid - int2(1, 0)].x +
+                     W_in[tid + int2(0, 1)].y - W_in[tid - int2(0, 1)].y) * dim.y / 2;
+
+    P_out[tid] = 0;
+}

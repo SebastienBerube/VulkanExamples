@@ -203,7 +203,7 @@ public:
 
 	// With VK_EXT_graphics_pipeline_library we don't need to create the shader module when loading it, but instead have the driver create it at linking time
 	// So we use a custom function that only loads the required shader information without actually creating the shader module
-	bool loadShaderFile(std::string fileName, ShaderInfo &shaderInfo)
+	bool loadShaderFile(std::string fileName, ShaderInfo &shaderInfo, VkShaderStageFlagBits shaderStage)
 	{
 #if defined(__ANDROID__)
 		// Load shader from compressed asset
@@ -218,21 +218,34 @@ public:
 		AAsset_read(asset, shaderCode, size);
 		AAsset_close(asset);
 #else
-		std::ifstream is(fileName, std::ios::binary | std::ios::in | std::ios::ate);
 
-		if (is.is_open())
-		{
-			shaderInfo.size = is.tellg();
-			is.seekg(0, std::ios::beg);
-			shaderInfo.code = new uint32_t[shaderInfo.size];
-			is.read(reinterpret_cast<char*>(shaderInfo.code), shaderInfo.size);
-			is.close();
-			return true;
-		} else {
-			std::cerr << "Error: Could not open shader file \"" << fileName << "\"" << "\n";
-			throw std::runtime_error("Could open shader file");
-			return false;
-		}
+        std::string validatedFileName = fixShaderPath(fileName, settings.compileShaders);
+
+        if (settings.compileShaders)
+        {
+            vks::tools::compileHlsl(validatedFileName.c_str(), device, shaderStage, shaderInfo.size, shaderInfo.code);
+            return true;
+        }
+        else
+        {
+            std::ifstream is(fileName, std::ios::binary | std::ios::in | std::ios::ate);
+
+            if (is.is_open() && (is.tellg() % sizeof(uint32_t) == 0))
+            {
+                shaderInfo.size = is.tellg();
+                is.seekg(0, std::ios::beg);
+                shaderInfo.code = new uint32_t[shaderInfo.size/ sizeof(uint32_t)];
+                is.read(reinterpret_cast<char*>(shaderInfo.code), shaderInfo.size);
+                is.close();
+                return true;
+            }
+            else {
+                std::cerr << "Error: Could not open shader file \"" << fileName << "\"" << "\n";
+                throw std::runtime_error("Could open shader file");
+                return false;
+            }
+        }
+		
 #endif
 	}
 
@@ -282,7 +295,9 @@ public:
 
 			// @todo: we can skip the pipeline shader module info and directly consume the shader module
 			ShaderInfo shaderInfo{};
-			loadShaderFile(getShadersPath() + "graphicspipelinelibrary/shared.vert.spv", shaderInfo);
+            shaderInfo.size = 0;
+            shaderInfo.code = nullptr;
+			loadShaderFile(getShadersPath() + "graphicspipelinelibrary/shared.vert.spv", shaderInfo, VK_SHADER_STAGE_VERTEX_BIT);
 
 			VkShaderModuleCreateInfo shaderModuleCI{};
 			shaderModuleCI.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -307,6 +322,8 @@ public:
 			pipelineLibraryCI.pViewportState = &viewportState;
 			pipelineLibraryCI.pRasterizationState = &rasterizationState;
 			VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineLibraryCI, nullptr, &pipelineLibrary.preRasterizationShaders));
+
+            delete[] shaderInfo.code;
 		}
 
 		// Create a pipeline library for the fragment output interface
@@ -364,7 +381,7 @@ public:
 
 		// Using the pipeline library extension, we can skip the pipeline shader module creation and directly pass the shader code to the pipeline
 		ShaderInfo shaderInfo{};
-		loadShaderFile(getShadersPath() + "graphicspipelinelibrary/uber.frag.spv", shaderInfo);
+		loadShaderFile(getShadersPath() + "graphicspipelinelibrary/uber.frag.spv", shaderInfo, VK_SHADER_STAGE_FRAGMENT_BIT);
 
 		VkShaderModuleCreateInfo shaderModuleCI{};
 		shaderModuleCI.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;

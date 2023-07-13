@@ -1,0 +1,61 @@
+﻿
+RWTexture2D<float2> U_out;
+
+// W (velocity field; working)
+Texture2D<float2> W_in;
+
+// P (pressure field)
+Texture2D<float> P_in;
+
+// Obstacles map
+Texture2D<float> O_in;
+SamplerState samplerO_in;
+
+// Finishing for Project step (divergence free field calculation)
+[numthreads(8, 8, 1)]
+void PFinish(uint2 tid : SV_DispatchThreadID)
+{
+    uint2 dim;
+    W_in.GetDimensions(dim.x, dim.y);
+
+    if (any(tid == 0) || any(tid == dim - 1)) return;
+
+    float P1 = P_in[max(tid - int2(1, 0), 1)];
+    float P2 = P_in[min(tid + int2(1, 0), dim - 2)];
+    float P3 = P_in[max(tid - int2(0, 1), 1)];
+    float P4 = P_in[min(tid + int2(0, 1), dim - 2)];
+
+    float2 u = W_in[tid] - float2(P2 - P1, P4 - P3) * dim.y / 2;
+
+    U_out[tid] = u;
+
+    //Internal obstacles
+    float2 uv = (tid + 0.5) / dim;
+    float du = 1. / dim.x, dv = 1. / dim.y; 
+
+    float oCenter = O_in.SampleLevel(samplerO_in, uv, 0);
+    float dx = O_in.SampleLevel(samplerO_in, uv + float2(du, 0), 0) - oCenter;
+    float dy = O_in.SampleLevel(samplerO_in, uv + float2(0, dv), 0) - oCenter;
+    float2 grad = float2(dx, dy);
+
+    bool inside = oCenter > 0.5 ? 1.0 : 0.0;
+    bool nullGrad = (abs(dx) + abs(dy) <= 0.0);
+
+    if (inside)
+    {   
+        U_out[tid] = 0;
+    }
+    else if(!nullGrad)
+    {
+        float neighborObstacle = O_in.SampleLevel(samplerO_in, uv + normalize(grad) / dim.xy, 0);
+        if (neighborObstacle >= 0.5)
+        {
+            U_out[tid] = -u;
+        }
+    }
+    //Boundary
+    if (tid.x == 1) U_out[int2(0, tid.y)] = -u;
+    else if (tid.y == 1) U_out[int2(tid.x, 0)] = -u;
+    else if (tid.x == dim.x - 2) U_out[int2(dim.x - 1, tid.y)] = -u;
+    else if (tid.y == dim.y - 2) U_out[int2(tid.x, dim.y - 1)] = -u;
+}
