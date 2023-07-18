@@ -1,0 +1,29 @@
+﻿#version 450
+
+layout (local_size_x = 16, local_size_y = 16) in;
+layout (binding = 0, rgba8) uniform readonly image2D inputImage;
+layout (binding = 1, rgba8) uniform image2D resultImage;
+
+void main()
+{
+    vec3 sum = vec3(0,0,0);
+    float total_weight = 0.0;
+
+    const int RANGE = 8;
+    //uint xMin = max(0, gl_GlobalInvocationID.x-RANGE);
+    //uint xMax = min(0, gl_GlobalInvocationID.x-RANGE);
+    
+    for(int i=-RANGE; i<=RANGE; ++i)
+    {
+      for(int j=-RANGE; j<=RANGE; ++j)
+      {
+        float weight = 1.0;
+        sum += weight * imageLoad(inputImage, ivec2(gl_GlobalInvocationID.x+i, gl_GlobalInvocationID.y+j)).rgb;
+        total_weight += weight;
+      }
+    }
+
+    vec4 res = vec4(sum/total_weight,1);
+
+    imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), res);
+}

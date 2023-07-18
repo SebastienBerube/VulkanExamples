@@ -1,0 +1,92 @@
+#version 450
+
+layout (local_size_x = 16, local_size_y = 16) in;
+layout (binding = 0, rgba8) uniform readonly image2D thresholdInput;
+layout (binding = 1, rgba8) uniform image2D thresholdResult;
+layout (binding = 2, rgba8) uniform readonly image2D blurInput;
+layout (binding = 3, rgba8) uniform image2D blurResult;
+layout (binding = 4, rgba8) uniform readonly image2D channelSwapInput;
+layout (binding = 5, rgba8) uniform image2D channelSwapResult;
+
+layout(push_constant) uniform PushConstants {
+    int kernelIndex;
+    int frameIndex;
+    float alpha;
+} pc;
+
+void clearBlurResult()
+{
+    imageStore(blurResult, ivec2(gl_GlobalInvocationID.xy), vec4(0,1,0,1));
+}
+
+void threshold()
+{
+    vec3 threshold = vec3(0.75,0.75,0.75);
+    
+    vec3 rgb = imageLoad(thresholdInput, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y)).rgb;
+    
+    vec4 res = //fract((pc.frameIndex%1000)/1000.0)*
+                 vec4(rgb.r > threshold.r ? 1.0 : 0.0,
+                      rgb.g > threshold.g ? 1.0 : 0.0,
+                      rgb.b > threshold.b ? 1.0 : 0.0,
+                      1.0);
+    /*if(((gl_GlobalInvocationID.x+gl_GlobalInvocationID.y+pc.frameIndex)/50)%2==1)
+    {
+      res = vec4(0,0,0,1);
+    }*/
+
+    imageStore(thresholdResult, ivec2(gl_GlobalInvocationID.xy), res);
+}
+
+void blur()
+{
+    vec3 sum = vec3(0,0,0);
+    float total_weight = 0.0;
+
+    const int RANGE = 15;
+    
+    for(int i=-RANGE; i<=RANGE; ++i)
+    {
+      for(int j=-RANGE; j<=RANGE; ++j)
+      {
+        float weight = 1.0;
+        sum += weight * imageLoad(blurInput, ivec2(gl_GlobalInvocationID.x+i, gl_GlobalInvocationID.y+j)).rgb;
+        total_weight += weight;
+      }
+    }
+
+    vec4 res = vec4(sum/total_weight,1);
+
+    imageStore(blurResult, ivec2(gl_GlobalInvocationID.xy), res);
+}
+
+void channelSwap()
+{
+    vec3 rgb = imageLoad(channelSwapInput, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y)).rgb;
+                    
+    vec4 res = vec4(
+        rgb.g,
+        rgb.b,
+        rgb.r,
+        1.0);
+
+    imageStore(channelSwapResult, ivec2(gl_GlobalInvocationID.xy), res);
+}
+
+void main()
+{
+  if(pc.kernelIndex==0)
+  {
+    threshold();
+    clearBlurResult();
+  }
+  else if(pc.kernelIndex==1)
+  {
+    blur();
+  }
+  else if(pc.kernelIndex==2)
+  {
+    //blur();
+    channelSwap();
+  }
+}

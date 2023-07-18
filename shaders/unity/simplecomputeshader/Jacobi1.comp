@@ -1,0 +1,14 @@
+﻿// Jacobi method arguments
+float Alpha, Beta;
+
+Texture2D<float> X1_in;
+Texture2D<float> B1_in;
+RWTexture2D<float> X1_out;
+
+// Jacobi method with a scalar field
+[numthreads(8, 8, 1)]
+void Jacobi1(uint2 tid : SV_DispatchThreadID)
+{
+    X1_out[tid] = (X1_in[tid - int2(1, 0)] + X1_in[tid + int2(1, 0)] +
+                   X1_in[tid - int2(0, 1)] + X1_in[tid + int2(0, 1)] + Alpha * B1_in[tid]) / Beta;
+}

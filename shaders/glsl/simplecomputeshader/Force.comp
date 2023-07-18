@@ -1,0 +1,22 @@
+﻿float DeltaTime;
+
+float Vorticity;
+
+// F (external forces)
+Texture2D<float2> F_in;
+
+// W (velocity field; working)
+Texture2D<float2> W_in;
+RWTexture2D<float2> W_out;
+
+// Add-force step
+[numthreads(8, 8, 1)]
+void Force(uint2 tid : SV_DispatchThreadID)
+{
+    //Note : This factor was added to keep the force scale compatible with
+    //       previous versions while adding the DeltaTime, which reduces the force.
+    //       This scale factor can be removed if we adjust all the forces at the source.
+    const float LEGACY_TIME_SCALE = (1./60.);
+
+    W_out[tid] = W_in[tid] + F_in[tid] * DeltaTime / LEGACY_TIME_SCALE;
+}

@@ -11,8 +11,16 @@ namespace VulkanUtilities
 
     std::string VulkanExampleFramework::getShadersPath() const
     {
-        const std::string shaderDir = "glsl";
-        return getAssetPath() + "shaders/" + shaderDir + "/";
+        switch (_base.settings.shadingLang)
+        {
+        case ShadingLanguage::GLSL:
+            return getShaderBasePath() + "/glsl/";
+        case ShadingLanguage::HLSL:
+            return getShaderBasePath() + "/hlsl/";
+        default:
+            std::cerr << "Error: Unknown shader file type." << "\n";
+            return "";
+        }
     }
 
     VkDevice VulkanExampleFramework::getVkDevice() const

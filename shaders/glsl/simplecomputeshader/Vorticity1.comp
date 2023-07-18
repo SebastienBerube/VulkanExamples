@@ -1,0 +1,16 @@
+﻿// W (velocity field; working)
+Texture2D<float2> W_in;
+
+RWTexture2D<float> VOR_out;
+
+[numthreads(8, 8, 1)]
+void Vorticity1(uint2 tid : SV_DispatchThreadID)
+{
+    float2 vLeft = W_in[tid - int2(-1, 0)];
+    float2 vRight = W_in[tid - int2(1, 0)];
+    float2 vTop = W_in[tid - int2(0, 1)];
+    float2 vBottom = W_in[tid - int2(0, -1)];
+
+    float halfReciprocalGridScale = 0.4f;
+    VOR_out[tid] = (halfReciprocalGridScale * ((vRight.y - vLeft.y) - (vTop.x - vBottom.x)));
+}
