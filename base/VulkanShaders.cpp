@@ -16,28 +16,6 @@
 #include <wrl/client.h>
 using namespace Microsoft::WRL;
 
-/*#if defined(__ANDROID__)
-#define VK_CHECK_RESULT(f)																				\
-{																										\
-    VkResult res = (f);																					\
-    if (res != VK_SUCCESS)																				\
-    {																									\
-        LOGE("Fatal : VkResult is \" %s \" in %s at line %d", vks::tools::errorString(res).c_str(), __FILE__, __LINE__); \
-        assert(res == VK_SUCCESS);																		\
-    }																									\
-}
-#else
-#define VK_CHECK_RESULT(f)																				\
-{																										\
-    VkResult res = (f);																					\
-    if (res != VK_SUCCESS)																				\
-    {																									\
-        std::cout << "Fatal : VkResult is \"" << vks::tools::errorString(res) << "\" in " << __FILE__ << " at line " << __LINE__ << "\n"; \
-        assert(res == VK_SUCCESS);																		\
-    }																									\
-}
-#endif*/
-
 namespace vks
 {
     namespace shaders
@@ -69,7 +47,7 @@ namespace vks
                 file.close();
             }
             else {
-                std::cerr << "Failed to open file." << std::endl;
+                throw std::runtime_error("Failed to open file \"" + std::string(filePath) + "\"");
             }
             return content;
         }
@@ -83,7 +61,7 @@ namespace vks
             src_buffer.Size = hlslText.size();
             src_buffer.Encoding = 0;
 
-            dxc_compiler->Compile(&src_buffer, args.data(), args.size(), nullptr, IID_PPV_ARGS(&result));
+            dxc_compiler->Compile(&src_buffer, args.data(), (UINT32)args.size(), nullptr, IID_PPV_ARGS(&result));
 
             return result;
         }
@@ -168,7 +146,7 @@ namespace vks
             if (!errors.empty())
             {
                 printErrors(errors);
-                return VK_NULL_HANDLE;
+                throw std::runtime_error("Shader compilation failed for file \"" + std::string(fileName) + "\"");
             }
 
             HRESULT status = 0;
@@ -218,7 +196,12 @@ namespace vks
         {
             auto shader_obj = compileHlslInternal(fileName, device, shaderStage);
 
-            VkShaderModule shaderModule;
+            if (shader_obj == VK_NULL_HANDLE)
+            {
+                throw std::runtime_error("Shader compilation failed for file \"" + std::string(fileName) + "\"");
+            }
+
+            VkShaderModule shaderModule = VK_NULL_HANDLE;
             VkShaderModuleCreateInfo moduleCreateInfo{};
             moduleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
             moduleCreateInfo.codeSize = shader_obj->GetBufferSize();
@@ -226,7 +209,10 @@ namespace vks
 
             VkResult res = vkCreateShaderModule(device, &moduleCreateInfo, NULL, &shaderModule);
 
-            //VK_CHECK_RESULT(res);
+            if (res != VK_SUCCESS)
+            {
+                throw std::runtime_error("Error: vkCreateShaderModule returned VkResult=" + res + std::string(" for file \"") + std::string(fileName) + "\"");
+            }
 
             return shaderModule;
         }
@@ -234,13 +220,20 @@ namespace vks
 
         VkShaderModule loadShaderFromSource(const char* fileName, VkDevice device, ShadingLanguage shadingLang, VkShaderStageFlagBits shaderStage)
         {
-            switch (shadingLang) {
-            case ShadingLanguage::HLSL:
-                return compileAndLoadHlslShader(fileName, device, shaderStage);
-            default:
-                std::cerr << "Error: runtime shader compilation is only supported for HLSL\n";
-                return VK_NULL_HANDLE;
+            try
+            {
+                switch (shadingLang) {
+                case ShadingLanguage::HLSL:
+                    return compileAndLoadHlslShader(fileName, device, shaderStage);
+                default:
+                    throw std::runtime_error("Error: runtime shader compilation is only supported for HLSL");
+                }
             }
+            catch (std::exception e)
+            {
+                std::cerr << "Exception caught while loading shader: " << e.what() << std::endl;
+            }
+            return VK_NULL_HANDLE;
         }
 
         bool fileExists(const std::string &filename)
