@@ -272,7 +272,7 @@ VkPipelineShaderStageCreateInfo VulkanExampleBase::loadShader(std::string fileNa
 #else
     std::string validatedFileName = fixShaderPath(fileName, settings.compileShaders);
 
-    shaderStage.module = settings.compileShaders ? vks::tools::loadShaderFromSource(validatedFileName.c_str(), device, settings.shadingLang, stage)
+    shaderStage.module = settings.compileShaders ? vks::shaders::loadShaderFromSource(validatedFileName.c_str(), device, settings.shadingLang, stage)
                                                  : vks::tools::loadShader(validatedFileName.c_str(), device);
 #endif
 	shaderStage.pName = "main";

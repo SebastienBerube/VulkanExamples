@@ -10,6 +10,7 @@
 
 #include "vulkan/vulkan.h"
 #include "VulkanInitializers.hpp"
+#include "VulkanShaders.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -59,11 +60,6 @@
 	}																									\
 }
 #endif
-
-enum ShadingLanguage {
-    HLSL = 0x00000001,
-    GLSL = 0x00000002,
-};
 
 const std::string getAssetPath();
 const std::string getShaderBasePath();
@@ -133,11 +129,7 @@ namespace vks
 #else
 		VkShaderModule loadShader(const char *fileName, VkDevice device);
 #endif
-
-        void compileHlsl(const char* fileName, VkDevice device, VkShaderStageFlagBits shaderStage, size_t& shaderCodeSize, uint32_t*& shaderCode);
-
-        VkShaderModule loadShaderFromSource(const char* fileName, VkDevice device, ShadingLanguage shadingLang, VkShaderStageFlagBits shaderStage);
-
+        
 		/** @brief Checks if a file exists */
 		bool fileExists(const std::string &filename);
 
