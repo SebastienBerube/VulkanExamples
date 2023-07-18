@@ -20,7 +20,22 @@ namespace vks
 {
     namespace shaders
     {
-#ifndef __ANDROID__
+#if defined(__ANDROID__)
+
+        void compileHlsl(const char* fileName, VkDevice device, VkShaderStageFlagBits shaderStage, size_t& shaderCodeSize, uint32_t*& shaderCode)
+        {
+            std::string errMsg = "Error: Runtime HLSL shader compilation not implemented for Android.";
+            std::cerr << errMsg << std::endl;
+            throw std::runtime_error(errMsg);
+        }
+
+        VkShaderModule loadShaderFromSource(const char* fileName, VkDevice device, ShadingLanguage shadingLang, VkShaderStageFlagBits shaderStage)
+        {
+            std::string errMsg = "Error: Load shader from source not implemented for Android.";
+            std::cerr << errMsg << std::endl;
+            return VK_NULL_HANDLE;
+        }
+#else
 
         std::string getCompilationErrors(ComPtr<IDxcResult>& result)
         {
@@ -216,7 +231,6 @@ namespace vks
 
             return shaderModule;
         }
-#endif
 
         VkShaderModule loadShaderFromSource(const char* fileName, VkDevice device, ShadingLanguage shadingLang, VkShaderStageFlagBits shaderStage)
         {
@@ -241,5 +255,6 @@ namespace vks
             std::ifstream f(filename.c_str());
             return !f.fail();
         }
+#endif
     }
 }
