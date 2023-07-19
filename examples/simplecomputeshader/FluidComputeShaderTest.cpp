@@ -1,7 +1,7 @@
 /*
-* Vulkan Example - Compute shader image processing
+* Fluid Compute Shader Test
 *
-* Copyright (C) 2016 by Sascha Willems - www.saschawillems.de
+* Copyright (C) 2023 by Sebastien Berube
 *
 * This code is licensed under the MIT license (MIT) (http://opensource.org/licenses/MIT)
 */
@@ -9,6 +9,8 @@
 #include "FluidComputeShaderTest.h"
 #include "VulkanFramework.h"
 #include "SimpleComputeShader.h"
+
+using namespace VulkanUtilities;
 
 namespace
 {
@@ -72,7 +74,7 @@ void FluidComputeShaderTest::createComputePasses()
 {
     //framework = new VulkanUtilities::VulkanExampleFramework(*this, descriptorPool, pipelineCache);// (*this, descriptorPool, pipelineCache);
 
-    std::vector<std::string> shaderNames = { "simplecomputeshader/Advect" };
+    std::vector<std::string> shaderNames = { "simplecomputeshader/horizontalFlip" };
 
     for (auto shaderName : shaderNames)
     {
@@ -324,8 +326,14 @@ void FluidComputeShaderTest::preparePipelines()
     // Load shaders
     std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages;
 
-    shaderStages[0] = loadShader(getShadersPath() + "computeshadernetwork/texture.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-    shaderStages[1] = loadShader(getShadersPath() + "computeshadernetwork/texture.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+    {
+        std::string sPath = getShadersPath() + "simplecomputeshader/texture.vert.spv";
+        shaderStages[0] = loadShader(getShadersPath() + "simplecomputeshader/texture.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
+    }
+    {
+        std::string sPath = getShadersPath() + "simplecomputeshader/texture.frag.spv";
+        shaderStages[1] = loadShader(getShadersPath() + "simplecomputeshader/texture.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+    }
 
     VkGraphicsPipelineCreateInfo pipelineCreateInfo =
         vks::initializers::pipelineCreateInfo(
@@ -408,19 +416,36 @@ void FluidComputeShaderTest::prepareGraphics()
 void FluidComputeShaderTest::prepareCompute()
 {
     //testUnityCompute();
-    framework = new VulkanUtilities::VulkanExampleFramework(*this, descriptorPool, pipelineCache);// (*this, descriptorPool, pipelineCache);
+    framework = new VulkanUtilities::VulkanExampleFramework(*this, descriptorPool, pipelineCache);
 
     // Get a compute queue from the device
     vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.compute, 0, &compute.queue);
 
     vks::Texture* srcImage = &textureColorMap;
-    for (auto& computePass : compute.passes)
     {
-        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName);
-        computePass.computeShader->SetFloat("DeltaTime", this->frameTimer);
-        computePass.computeShader->SetTexture(0, "samplerU_in", *srcImage);
-        computePass.computeShader->SetTexture(0, "U_in", *srcImage);
-        computePass.computeShader->SetTexture(0, "W_out", computePass.textureComputeTarget);
+        auto& computePass = compute.passes[0];
+        std::vector<UniformInfo> uniforms;
+        {
+            UniformType uType = UNSUPPORTED;
+            int byteOffset = 0;
+
+
+            uType = GetUniformType("float");
+            uniforms.push_back(UniformInfo{ "intensity", uType, 0, byteOffset });
+            byteOffset += GetTypeSize(uType);
+        }
+        
+        std::vector<BindingInfo> bindings;
+        {
+            bindings.push_back(BindingInfo{ "inputImage", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "resultImage", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
+        }
+        
+        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
+        
+        computePass.computeShader->SetFloat("intensity", 0.5);
+        computePass.computeShader->SetTexture(0, "inputImage", *srcImage);
+        computePass.computeShader->SetTexture(0, "resultImage", computePass.textureComputeTarget);
 
         //Input texture is output of the previous compute pass
         srcImage = &computePass.textureComputeTarget;

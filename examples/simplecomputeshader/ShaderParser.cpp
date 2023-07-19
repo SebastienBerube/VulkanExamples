@@ -4,7 +4,7 @@
 
 namespace VulkanUtilities
 {
-    UniformType GetUniformType(std::string type)
+    UniformType GetUniformType(const std::string& type)
     {
         if (type == "float")
         {

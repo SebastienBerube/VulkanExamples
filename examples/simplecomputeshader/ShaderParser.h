@@ -60,6 +60,8 @@ namespace VulkanUtilities
 
     int GetTypeSize(UniformType type);
 
+    UniformType GetUniformType(const std::string& type);
+
     int GetTotalSize(std::vector<UniformInfo>& uniforms);
 
     void SetValue(const std::vector<UniformInfo>& uniformInfos, std::vector<unsigned char>& uniformData, std::string name, void* src);

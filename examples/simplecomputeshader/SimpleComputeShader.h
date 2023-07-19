@@ -16,6 +16,7 @@ namespace VulkanUtilities
         
         //shaderAssetPath example : "computeshadernetwork/blur"
         SimpleComputeShader(VulkanFramework& framework, const std::string& shaderAssetPath);
+        SimpleComputeShader(VulkanFramework& framework, const std::string& shaderAssetPath, const std::vector<UniformInfo>& uniforms, const std::vector<BindingInfo>& bindings);
         ~SimpleComputeShader();
 
         void SetFloat(const std::string& name, float val);

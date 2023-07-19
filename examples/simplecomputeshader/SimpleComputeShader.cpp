@@ -1,5 +1,6 @@
 #include "SimpleComputeShader.h"
 #include "vulkanexamplebase.h"
+#include "AssertMsg.h"
 
 #include <regex>
 #include <vector>
@@ -60,6 +61,8 @@ namespace VulkanUtilities
     SimpleComputeShader::SimpleComputeShader(VulkanFramework& framework, const std::string& shaderAssetPath)
         : _framework(framework)
     {
+        ASSERT_MSG(0, "Shader Parsing was not yet fully implemented.");
+
         _uniformInfos = ParseShaderUniforms(shaderAssetPath);
         _shaderAssetPath = shaderAssetPath;
         int totalSize = GetTotalSize(_uniformInfos);
@@ -68,6 +71,24 @@ namespace VulkanUtilities
             _uniformData.resize(totalSize, (unsigned char)0);
         }
         
+        _bindingInfos = ParseShaderBindings(_shaderAssetPath);
+
+        PrepareDescriptorSets();
+    }
+
+    SimpleComputeShader::SimpleComputeShader(VulkanFramework& framework, const std::string& shaderAssetPath, const std::vector<UniformInfo>& uniforms, const std::vector<BindingInfo>& bindings)
+        : _framework(framework)
+    {
+        _uniformInfos = uniforms;
+        _shaderAssetPath = shaderAssetPath;
+        int totalSize = GetTotalSize(_uniformInfos);
+        if (totalSize > 0)
+        {
+            _uniformData.resize(totalSize, (unsigned char)0);
+        }
+
+        _bindingInfos = bindings;
+
         PrepareDescriptorSets();
     }
 
@@ -84,8 +105,6 @@ namespace VulkanUtilities
 
     void SimpleComputeShader::PrepareDescriptorSets()
     {
-        _bindingInfos = ParseShaderBindings(_shaderAssetPath);
-
         std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = getDescriptorSetLayout(_bindingInfos);
 
         VkDescriptorSetLayoutCreateInfo descriptorLayout = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
@@ -137,9 +156,11 @@ namespace VulkanUtilities
     void SimpleComputeShader::SetTexture(int kernelIndex, const std::string& nameID, ImageInfo imageInfo)
     {
         auto it = std::find_if(_bindingInfos.begin(), _bindingInfos.end(), [&nameID](const BindingInfo& item)
-            {
-                return item.name == nameID;
-            });
+        {
+            return item.name == nameID;
+        });
+
+        ASSERT_MSG(it != _bindingInfos.end(), "SimpleComputeShader::SetTexture() nameID="+ nameID +" not found in binding infos");
 
         BindingInfo& bindingInfo = *it;
         bindingInfo.resourceInfo = imageInfo;
@@ -161,10 +182,10 @@ namespace VulkanUtilities
 
     void SimpleComputeShader::Dispatch(VkCommandBuffer commandBuffer, int kernelIndex, int frameIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ)
     {
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipeline);
-
         //ANSME : Should this be called before or after bind pipeline?
         UpdateUniforms(commandBuffer);
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipeline);
+
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pipelineLayout, 0, 1, &_descriptorSet, 0, 0);
         vkCmdDispatch(commandBuffer, threadGroupsX, threadGroupsY, threadGroupsZ);
     }
