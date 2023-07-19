@@ -14,9 +14,9 @@ namespace VulkanUtilities
         switch (_base.settings.shadingLang)
         {
         case ShadingLanguage::GLSL:
-            return getShaderBasePath() + "/glsl/";
+            return getShaderBasePath() + "glsl/";
         case ShadingLanguage::HLSL:
-            return getShaderBasePath() + "/hlsl/";
+            return getShaderBasePath() + "hlsl/";
         default:
             std::cerr << "Error: Unknown shader file type." << "\n";
             return "";
