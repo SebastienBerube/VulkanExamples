@@ -1,0 +1,31 @@
+//RWTexture2D<float4> inputImage : register(u0);
+Texture2D inputImage : register(t0);
+SamplerState inputImageSampler : register(s0);
+
+RWTexture2D<float4> resultImage : register(u1);
+
+struct PushConstants
+{
+    float DeltaTime;
+    int FrameNo; //Unused. This was for test purposes only.
+};
+
+[[vk::push_constant]]
+PushConstants pc;
+
+[numthreads(16, 16, 1)]
+void main(uint3 GlobalInvocationID : SV_DispatchThreadID)
+{
+    uint width;
+    uint height;
+    inputImage.GetDimensions(width, height);
+
+    uint2 tid = uint2(GlobalInvocationID.x, GlobalInvocationID.y);
+    uint2 dim = uint2(width, height);
+    float2 uv = (tid.xy + 0.5) / dim;
+    float2 duv = inputImage[tid].rg * float2(float(dim.y) / dim.x, 1) * pc.DeltaTime; //Compiles, but untested.
+    
+    float2 value_out = inputImage.SampleLevel(inputImageSampler, uv-duv, 0.0).rg;
+    
+    resultImage[int2(GlobalInvocationID.xy)] = float4(value_out,0,1);
+}

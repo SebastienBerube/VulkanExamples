@@ -66,6 +66,8 @@ public:
         glm::mat4 modelView;
     } uboVS;
 
+    int frameNo = 0;
+
     int vertexBufferSize;
 
     FluidComputeShaderTest();
@@ -106,10 +108,13 @@ public:
 
     void buildComputeCommandBuffer();
 
+    void updateComputeShaderPushConstants();
+
     void draw();
 
     void prepare()
     {
+        frameNo = 0;
         VulkanExampleBase::prepare();
         loadAssets();
         createComputePasses();

@@ -72,14 +72,9 @@ void FluidComputeShaderTest::loadAssets()
 
 void FluidComputeShaderTest::createComputePasses()
 {
-    //framework = new VulkanUtilities::VulkanExampleFramework(*this, descriptorPool, pipelineCache);// (*this, descriptorPool, pipelineCache);
-
-    std::vector<std::string> shaderNames = { "simplecomputeshader/horizontalFlip" };
-
-    for (auto shaderName : shaderNames)
+    for (int i=0; i<1; ++i)
     {
         ComputePass computePass;
-        computePass.shaderName = shaderName;
         compute.passes.push_back(computePass);
     }
 }
@@ -429,27 +424,32 @@ void FluidComputeShaderTest::prepareCompute()
             UniformType uType = UNSUPPORTED;
             int byteOffset = 0;
 
-
             uType = GetUniformType("float");
-            uniforms.push_back(UniformInfo{ "intensity", uType, 0, byteOffset });
+            uniforms.push_back(UniformInfo{ "DeltaTime", uType, 0, byteOffset });
+            byteOffset += GetTypeSize(uType);
+
+            uType = GetUniformType("int");
+            uniforms.push_back(UniformInfo{ "FrameNo", uType, 2, byteOffset });
             byteOffset += GetTypeSize(uType);
         }
         
         std::vector<BindingInfo> bindings;
         {
-            bindings.push_back(BindingInfo{ "inputImage", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "inputImage", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
             bindings.push_back(BindingInfo{ "resultImage", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
         }
         
-        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
+        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, "simplecomputeshader/advect", uniforms, bindings);
         
-        computePass.computeShader->SetFloat("intensity", 0.5);
+        computePass.computeShader->SetFloat("DeltaTime", frameTimer);
+        computePass.computeShader->SetInt("FrameNo", frameNo);
         computePass.computeShader->SetTexture(0, "inputImage", *srcImage);
         computePass.computeShader->SetTexture(0, "resultImage", computePass.textureComputeTarget);
 
         //Input texture is output of the previous compute pass
         srcImage = &computePass.textureComputeTarget;
     }
+
 
     // One pipeline for each effect
     for (auto& computePass : compute.passes)
@@ -590,6 +590,18 @@ void FluidComputeShaderTest::buildComputeCommandBuffer()
     vkEndCommandBuffer(compute.commandBuffer);
 }
 
+void FluidComputeShaderTest::updateComputeShaderPushConstants()
+{
+    for (int i = 0; i < compute.passes.size(); ++i)
+    {
+        compute.passes[i].computeShader->SetFloat("DeltaTime", this->frameTimer);
+        compute.passes[i].computeShader->SetInt("FrameNo", this->frameNo);
+    }
+
+    //TODO : Figure out if there is a better way to update push constants than rebuilding the compute command buffer.
+    buildComputeCommandBuffer();
+}
+
 void FluidComputeShaderTest::draw()
 {
     // Wait for rendering finished
@@ -629,10 +641,14 @@ void FluidComputeShaderTest::render()
 {
     if (!prepared)
         return;
+    updateComputeShaderPushConstants();
+
     draw();
     if (camera.updated) {
         updateUniformBuffers();
     }
+
+    ++frameNo;
 }
 
 void FluidComputeShaderTest::viewChanged()
@@ -644,9 +660,6 @@ void FluidComputeShaderTest::viewChanged()
 void FluidComputeShaderTest::OnUpdateUIOverlay(vks::UIOverlay *overlay)
 {
     if (overlay->header("Settings")) {
-        /*if (overlay->comboBox("Shader", &compute.pipelineIndex, shaderNames)) {
-            buildComputeCommandBuffer();
-        }*/
         overlay->checkBox("Semaphore", &computeSemaphore);
         overlay->checkBox("ImageBarrier", &imageBarrier);
     }

@@ -1,6 +1,7 @@
 #include <regex>
 #include <iostream>
 #include "ShaderParser.h"
+#include "AssertMsg.h"
 
 namespace VulkanUtilities
 {
@@ -44,6 +45,7 @@ namespace VulkanUtilities
                 return;
             }
         }
+        ASSERT_MSG(0, "Uniform does not exist: " + name + ". Have you forgotten to push a valid UniformInfo?");
     }
 
     std::vector<UniformInfo> ParseShaderUniforms(const std::string& shader)
