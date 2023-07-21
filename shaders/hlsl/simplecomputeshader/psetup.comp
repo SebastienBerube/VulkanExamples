@@ -1,6 +1,6 @@
 ﻿RWTexture2D<float2> W_in : register(u0);
 RWTexture2D<float2> DivW_out : register(u1);
-RWTexture2D<float2> P_out : register(u2);
+RWTexture2D<float> P_out : register(u2);
 
 struct PushConstants
 {

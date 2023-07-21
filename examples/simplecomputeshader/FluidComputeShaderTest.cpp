@@ -102,8 +102,8 @@ void FluidComputeShaderTest::createComputePasses()
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::V4, VK_FORMAT_R32G32_SFLOAT);
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::F1, VK_FORMAT_R32G32_SFLOAT);
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::D1, VK_FORMAT_R32G32_SFLOAT);
-    createComputeTextureTarget(FluidComputeShaderTest::eTexID::P1, VK_FORMAT_R32G32_SFLOAT);
-    createComputeTextureTarget(FluidComputeShaderTest::eTexID::P2, VK_FORMAT_R32G32_SFLOAT);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::P1, VK_FORMAT_R32_SFLOAT);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::P2, VK_FORMAT_R32_SFLOAT);
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::VOR, VK_FORMAT_R32G32_SFLOAT);
 }
 
@@ -533,7 +533,7 @@ void FluidComputeShaderTest::prepareCompute()
         {
             bindings.push_back(BindingInfo{ "W_in",      VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
             bindings.push_back(BindingInfo{ "DivW_out",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
-            bindings.push_back(BindingInfo{ "P_out",     VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "P_out",     VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT,    (uint32_t)bindings.size() });
         }
 
         computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, "simplecomputeshader/force", uniforms, bindings);
