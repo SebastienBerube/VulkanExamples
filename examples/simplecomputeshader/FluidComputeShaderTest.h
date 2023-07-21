@@ -36,7 +36,34 @@ public:
         VkSemaphore semaphore;                      // Execution dependency between compute & graphic submission
     } graphics;
 
+    enum class eComputePass
+    {
+        Advect,
+        ForceGen,
+        Force,
+        PSetup,
+        PFinish,
+        Jacobi1,
+        Jacobi2,
+        Vorticity1,
+        Vorticity2
+    };
+
+    enum class eTexID
+    {
+        ColorDispersion = 0,
+        Velocity1 = 1,
+        Velocity2 = 2,
+        Velocity3 = 3,
+        Pressure1 = 4,
+        Pressure2 = 5,
+        Force = 6,
+        Count = 7,
+        Vorticity = 8
+    };
+
     struct ComputePass {
+        eComputePass id;
         VulkanUtilities::SimpleComputeShader* computeShader;
         std::string shaderName;
         vks::Texture2D textureComputeTarget;
@@ -102,6 +129,8 @@ public:
     void prepareGraphics();
 
     void testUnityCompute();
+    
+    ComputePass* getComputePassById(eComputePass id);
 
     void prepareCompute();
 
