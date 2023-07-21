@@ -72,7 +72,7 @@ void FluidComputeShaderTest::loadAssets()
 
 void FluidComputeShaderTest::createComputePasses()
 {
-    for (int i=0; i<2; ++i)
+    for (int i=0; i<3; ++i)
     {
         ComputePass computePass;
         compute.passes.push_back(computePass);
@@ -474,21 +474,8 @@ void FluidComputeShaderTest::prepareCompute()
     }
 
     //Force
-    /* {
+    {
         auto& computePass = compute.passes[2];
-        std::vector<UniformInfo> uniforms;
-        {
-            UniformType uType = UNSUPPORTED;
-            int byteOffset = 0;
-
-            uType = GetUniformType("float");
-            uniforms.push_back(UniformInfo{ "DeltaTime", uType, 0, byteOffset });
-            byteOffset += GetTypeSize(uType);
-
-            uType = GetUniformType("int");
-            uniforms.push_back(UniformInfo{ "FrameNo", uType, 2, byteOffset });
-            byteOffset += GetTypeSize(uType);
-        }
 
         std::vector<BindingInfo> bindings;
         {
@@ -499,14 +486,13 @@ void FluidComputeShaderTest::prepareCompute()
 
         computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, "simplecomputeshader/force", uniforms, bindings);
 
-        computePass.computeShader->SetFloat("DeltaTime", frameTimer);
-        computePass.computeShader->SetInt("FrameNo", frameNo);
-        computePass.computeShader->SetTexture(0, "inputImage", *srcImage);
-        computePass.computeShader->SetTexture(0, "resultImage", computePass.textureComputeTarget);
+        computePass.computeShader->SetTexture(0, "F_in", compute.passes[1].textureComputeTarget);
+        computePass.computeShader->SetTexture(0, "W_in", compute.passes[0].textureComputeTarget);
+        computePass.computeShader->SetTexture(0, "W_out", computePass.textureComputeTarget);
 
         //Input texture is output of the previous compute pass
         srcImage = &computePass.textureComputeTarget;
-    }*/
+    }
 
 
     // One pipeline for each effect
