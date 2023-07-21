@@ -481,18 +481,14 @@ void FluidComputeShaderTest::prepareCompute()
         
         std::vector<BindingInfo> bindings;
         {
-            bindings.push_back(BindingInfo{ "inputImage", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
-            bindings.push_back(BindingInfo{ "resultImage", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "U_in", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "U_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
         }
         
         computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
         
-
-        //computePass.computeShader->SetTexture(0, "inputImage", computeTextureTargets[FluidComputeShaderTest::eTexID::V1]);
-        //computePass.computeShader->SetTexture(0, "resultImage", computeTextureTargets[FluidComputeShaderTest::eTexID::V2]);
-
-        computePass.computeShader->SetTexture(0, "inputImage", *srcImage);
-        computePass.computeShader->SetTexture(0, "resultImage", computeTextureTargets[FluidComputeShaderTest::eTexID::V2]);
+        computePass.computeShader->SetTexture(0, "U_in", computeTextureTargets[FluidComputeShaderTest::eTexID::V1]);
+        computePass.computeShader->SetTexture(0, "U_out", computeTextureTargets[FluidComputeShaderTest::eTexID::V2]);
     }
 
     //Force Gen

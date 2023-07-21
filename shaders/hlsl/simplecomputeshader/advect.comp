@@ -1,8 +1,8 @@
 //RWTexture2D<float2> inputImage : register(u0);
-Texture2D inputImage : register(t0);
-SamplerState inputImageSampler : register(s0);
+Texture2D U_in : register(t0);
+SamplerState samplerU_in : register(s0);
 
-RWTexture2D<float2> resultImage : register(u1);
+RWTexture2D<float2> U_out : register(u1);
 
 struct PushConstants
 {
@@ -20,10 +20,10 @@ void main(uint3 GlobalInvocationID : SV_DispatchThreadID)
     uint2 tid = uint2(GlobalInvocationID.x, GlobalInvocationID.y);
 
     uint2 dim;
-    inputImage.GetDimensions(dim.x, dim.y);
+    U_in.GetDimensions(dim.x, dim.y);
 
     float2 uv = (tid + 0.5) / dim;
-    float2 duv = inputImage[tid].rg * float2(float(dim.y) / dim.x, 1) * pc.DeltaTime; //Compiles, but untested.
+    float2 duv = U_in[tid].rg * float2(float(dim.y) / dim.x, 1) * pc.DeltaTime; //Compiles, but untested.
     
-    resultImage[tid] = float2(inputImage.SampleLevel(inputImageSampler, uv-duv, 0.0).rg);
+    U_out[tid] = float2(U_in.SampleLevel(samplerU_in, uv-duv, 0.0).rg);
 }
