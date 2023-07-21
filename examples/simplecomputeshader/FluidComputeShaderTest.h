@@ -58,6 +58,7 @@ public:
         V3,
         V4,
         F1,
+        D1,
         P1,
         P2,
         VOR

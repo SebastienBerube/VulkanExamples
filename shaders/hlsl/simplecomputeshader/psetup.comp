@@ -1,0 +1,26 @@
+﻿RWTexture2D<float2> W_in : register(u0);
+RWTexture2D<float2> DivW_out : register(u1);
+RWTexture2D<float2> P_out : register(u2);
+
+struct PushConstants
+{
+    float DeltaTime;
+    float Time;
+    int FrameNo; //Unused. This was for test purposes only.
+};
+
+[[vk::push_constant]]
+PushConstants pc;
+
+// Setup for Project step (divW calculation)
+[numthreads(16, 16, 1)]
+void PSetup(uint2 tid : SV_DispatchThreadID)
+{
+    uint2 dim;
+    W_in.GetDimensions(dim.x, dim.y);
+
+    DivW_out[tid] = (W_in[tid + int2(1, 0)].x - W_in[tid - int2(1, 0)].x +
+                     W_in[tid + int2(0, 1)].y - W_in[tid - int2(0, 1)].y) * dim.y / 2;
+
+    P_out[tid] = 0;
+}

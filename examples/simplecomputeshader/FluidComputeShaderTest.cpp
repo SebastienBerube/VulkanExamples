@@ -92,6 +92,7 @@ void FluidComputeShaderTest::createComputePasses()
     compute.passes.push_back(ComputePass(eComputePass::Advect,   "simplecomputeshader/advect"));
     compute.passes.push_back(ComputePass(eComputePass::ForceGen, "simplecomputeshader/forceGen"));
     compute.passes.push_back(ComputePass(eComputePass::Force,    "simplecomputeshader/force"));
+    compute.passes.push_back(ComputePass(eComputePass::PSetup,   "simplecomputeshader/psetup"));
 
     computeTextureTargets.clear();
 
@@ -100,6 +101,7 @@ void FluidComputeShaderTest::createComputePasses()
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::V3, VK_FORMAT_R32G32_SFLOAT);
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::V4, VK_FORMAT_R32G32_SFLOAT);
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::F1, VK_FORMAT_R32G32_SFLOAT);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::D1, VK_FORMAT_R32G32_SFLOAT);
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::P1, VK_FORMAT_R32G32_SFLOAT);
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::P2, VK_FORMAT_R32G32_SFLOAT);
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::VOR, VK_FORMAT_R32G32_SFLOAT);
@@ -524,56 +526,23 @@ void FluidComputeShaderTest::prepareCompute()
     }
 
     //Projection Setup
-    /* {
-        auto& computePass = compute.passes[2];
+    {
+        auto& computePass = *getComputePassById(FluidComputeShaderTest::eComputePass::PSetup);
 
         std::vector<BindingInfo> bindings;
         {
-            bindings.push_back(BindingInfo{ "W_in",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
-            bindings.push_back(BindingInfo{ "DivW_out",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
-            bindings.push_back(BindingInfo{ "P_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "W_in",      VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "DivW_out",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "P_out",     VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
         }
 
         computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, "simplecomputeshader/force", uniforms, bindings);
 
-        computePass.computeShader->SetTexture(0, "F_in", compute.passes[1].textureComputeTarget);
-        computePass.computeShader->SetTexture(0, "W_in", compute.passes[0].textureComputeTarget);
-        computePass.computeShader->SetTexture(0, "W_out", computePass.textureComputeTarget);
+        computePass.computeShader->SetTexture(0, "W_in", computeTextureTargets[FluidComputeShaderTest::eTexID::V3]);
+        computePass.computeShader->SetTexture(0, "DivW_out", computeTextureTargets[FluidComputeShaderTest::eTexID::D1]);
+        computePass.computeShader->SetTexture(0, "P_out", computeTextureTargets[FluidComputeShaderTest::eTexID::P1]);
 
-        //Input texture is output of the previous compute pass
-        srcImage = &computePass.textureComputeTarget;
-    }*/
-
-    /*
-            compute.SetTexture(Kernels.PSetup, "W_in", Vorticity > 0f ? VFB.V4 : VFB.V3);
-            compute.SetTexture(Kernels.PSetup, "DivW_out", VFB.V2);
-            compute.SetTexture(Kernels.PSetup, "P_out", VFB.P1);
-            compute.Dispatch(Kernels.PSetup, ThreadCountX, ThreadCountY, 1);
-
-            // Jacobi iteration
-            compute.SetFloat("Alpha", -dx * dx);
-            compute.SetFloat("Beta", 4);
-            compute.SetTexture(Kernels.Jacobi1, "B1_in", VFB.V2);
-
-            for (var i = 0; i < JacobiIterations; i++)
-            {
-                compute.SetTexture(Kernels.Jacobi1, "X1_in", VFB.P1);
-                compute.SetTexture(Kernels.Jacobi1, "X1_out", VFB.P2);
-                compute.Dispatch(Kernels.Jacobi1, ThreadCountX, ThreadCountY, 1);
-
-                compute.SetTexture(Kernels.Jacobi1, "X1_in", VFB.P2);
-                compute.SetTexture(Kernels.Jacobi1, "X1_out", VFB.P1);
-                compute.Dispatch(Kernels.Jacobi1, ThreadCountX, ThreadCountY, 1);
-            }
-
-            // Projection finish
-            compute.SetTexture(Kernels.PFinish, "O_in", (obstacleTex != null) ? obstacleTex : Texture2D.blackTexture);
-            compute.SetTexture(Kernels.PFinish, "W_in", Vorticity > 0f ? VFB.V4 : VFB.V3);
-            compute.SetTexture(Kernels.PFinish, "P_in", VFB.P1);
-            compute.SetTexture(Kernels.PFinish, "U_out", VFB.V1);
-            compute.Dispatch(Kernels.PFinish, ThreadCountX, ThreadCountY, 1);
-    */
-
+    }
 
     // One pipeline for each effect
     for (auto& computePass : compute.passes)
