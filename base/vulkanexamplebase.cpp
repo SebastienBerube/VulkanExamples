@@ -25,7 +25,7 @@ std::string VulkanExampleBase::fixShaderPath(const std::string& shaderPath, bool
         auto strLen = shaderPath.length();
         if (strLen >= 4 && shaderPath.compare(strLen - 4, 4, ".spv") == 0)
         {
-            std::cout << "WARNING: .spv extension found in shaderPath while expecting to shaders to be recompiled from source!\n";
+            std::cout << "WARNING: .spv extension found in shaderPath while expecting shaders to be recompiled from source!\n";
             return shaderPath.substr(0, strLen - 4);
         }
     }
