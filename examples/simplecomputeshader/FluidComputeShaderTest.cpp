@@ -53,16 +53,16 @@ FluidComputeShaderTest::~FluidComputeShaderTest()
 
     textureColorMap.destroy();
 
-    for (auto& computePass : compute.passes)
+    for (auto& target : this->computeTextureTargets)
     {
-        computePass.textureComputeTarget.destroy();
+        target.second.destroy();
     }
 }
 
 vks::Texture2D& FluidComputeShaderTest::lastTextureComputeTarget()
 {
-    size_t lastComputePassIdx = compute.passes.size() - 1;
-    return compute.passes[lastComputePassIdx].textureComputeTarget;
+    //Temporary: return force texture.
+    return computeTextureTargets[FluidComputeShaderTest::eTexID::F1];
 }
 
 void FluidComputeShaderTest::loadAssets()
@@ -70,21 +70,39 @@ void FluidComputeShaderTest::loadAssets()
     textureColorMap.loadFromFile(getAssetPath() + "textures/vulkan_11_rgba.ktx", VK_FORMAT_R8G8B8A8_UNORM, vulkanDevice, queue, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_LAYOUT_GENERAL);
 }
 
+void FluidComputeShaderTest::createComputeTextureTarget(FluidComputeShaderTest::eTexID id, VkFormat format)
+{
+    ASSERT(computeTextureTargets.find(id) == computeTextureTargets.end());
+
+    vks::Texture2D textureTarget;
+    prepareTextureTarget(&textureTarget, compute.computeResX, compute.computeResY, format);
+    
+    computeTextureTargets[id] = textureTarget;
+}
+
 void FluidComputeShaderTest::createComputePasses()
 {
-    std::vector<std::pair<FluidComputeShaderTest::eComputePass, std::string>> computeShaders = {
-        {eComputePass::Advect,   "simplecomputeshader/advect"},
-        {eComputePass::ForceGen, "simplecomputeshader/forceGen"},
-        {eComputePass::Force,    "simplecomputeshader/force"}
-    };
+    compute.computeResX = textureColorMap.width;
+    compute.computeResY = textureColorMap.height;
+    ASSERT(compute.computeResX % 16 == 0);
+    ASSERT(compute.computeResY % 16 == 0);
+    compute.threadGroupX = compute.computeResX / 16;
+    compute.threadGroupY = compute.computeResY / 16;
 
-    for (auto comp : computeShaders)
-    {
-        ComputePass computePass;
-        computePass.id = comp.first;
-        computePass.shaderName = comp.second;
-        compute.passes.push_back(computePass);
-    }
+    compute.passes.push_back(ComputePass(eComputePass::Advect,   "simplecomputeshader/advect"));
+    compute.passes.push_back(ComputePass(eComputePass::ForceGen, "simplecomputeshader/forceGen"));
+    compute.passes.push_back(ComputePass(eComputePass::Force,    "simplecomputeshader/force"));
+
+    computeTextureTargets.clear();
+
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::V1, VK_FORMAT_R8G8B8A8_UNORM);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::V2, VK_FORMAT_R8G8B8A8_UNORM);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::V3, VK_FORMAT_R8G8B8A8_UNORM);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::V4, VK_FORMAT_R8G8B8A8_UNORM);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::F1, VK_FORMAT_R8G8B8A8_UNORM);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::P1, VK_FORMAT_R8G8B8A8_UNORM);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::P2, VK_FORMAT_R8G8B8A8_UNORM);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::VOR, VK_FORMAT_R8G8B8A8_UNORM);
 }
 
 // Setup vertices for a single uv-mapped quad
@@ -469,11 +487,12 @@ void FluidComputeShaderTest::prepareCompute()
         
         computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
         
-        computePass.computeShader->SetTexture(0, "inputImage", *srcImage);
-        computePass.computeShader->SetTexture(0, "resultImage", computePass.textureComputeTarget);
 
-        //Input texture is output of the previous compute pass
-        srcImage = &computePass.textureComputeTarget;
+        //computePass.computeShader->SetTexture(0, "inputImage", computeTextureTargets[FluidComputeShaderTest::eTexID::V1]);
+        //computePass.computeShader->SetTexture(0, "resultImage", computeTextureTargets[FluidComputeShaderTest::eTexID::V2]);
+
+        computePass.computeShader->SetTexture(0, "inputImage", *srcImage);
+        computePass.computeShader->SetTexture(0, "resultImage", computeTextureTargets[FluidComputeShaderTest::eTexID::V2]);
     }
 
     //Force Gen
@@ -487,10 +506,7 @@ void FluidComputeShaderTest::prepareCompute()
 
         computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
 
-        computePass.computeShader->SetTexture(0, "F_out", computePass.textureComputeTarget);
-
-        //Input texture is output of the previous compute pass
-        srcImage = &computePass.textureComputeTarget;
+        computePass.computeShader->SetTexture(0, "F_out", computeTextureTargets[FluidComputeShaderTest::eTexID::F1]);
     }
 
     //Force
@@ -506,12 +522,9 @@ void FluidComputeShaderTest::prepareCompute()
 
         computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
 
-        computePass.computeShader->SetTexture(0, "F_in", compute.passes[1].textureComputeTarget);
-        computePass.computeShader->SetTexture(0, "W_in", compute.passes[0].textureComputeTarget);
-        computePass.computeShader->SetTexture(0, "W_out", computePass.textureComputeTarget);
-
-        //Input texture is output of the previous compute pass
-        srcImage = &computePass.textureComputeTarget;
+        computePass.computeShader->SetTexture(0, "F_in", computeTextureTargets[FluidComputeShaderTest::eTexID::F1]);
+        computePass.computeShader->SetTexture(0, "W_in", computeTextureTargets[FluidComputeShaderTest::eTexID::V2]);
+        computePass.computeShader->SetTexture(0, "W_out", computeTextureTargets[FluidComputeShaderTest::eTexID::V3]);
     }
 
     //Projection Setup
@@ -671,6 +684,8 @@ void FluidComputeShaderTest::buildCommandBuffers()
 
         vkCmdEndRenderPass(drawCmdBuffers[i]);
 
+        //TODO: Test synchronization by clearing buffers here.
+        /*
         {
             VkClearColorValue clearColor0 = { 1.0f, 0.0f, 0.0f, 1.0f };
 
@@ -680,8 +695,9 @@ void FluidComputeShaderTest::buildCommandBuffers()
             clearRange.levelCount = VK_REMAINING_MIP_LEVELS;
             clearRange.baseArrayLayer = 0;
             clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-            vkCmdClearColorImage(drawCmdBuffers[i], compute.passes[0].textureComputeTarget.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
-        }
+            
+            vkCmdClearColorImage(drawCmdBuffers[i], compute.passes[0].textureComputeTargets[0].image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
+        }*/
 
         VK_CHECK_RESULT(vkEndCommandBuffer(drawCmdBuffers[i]));
     }
@@ -699,7 +715,7 @@ void FluidComputeShaderTest::buildComputeCommandBuffer()
 
     for (auto& computePass : compute.passes)
     {
-        computePass.computeShader->Dispatch(compute.commandBuffer, 0, 0, computePass.textureComputeTarget.width / 16, computePass.textureComputeTarget.height / 16, 1);
+        computePass.computeShader->Dispatch(compute.commandBuffer, 0, 0, compute.threadGroupX, compute.threadGroupY, 1);
     }
     
     vkEndCommandBuffer(compute.commandBuffer);
@@ -780,4 +796,10 @@ void FluidComputeShaderTest::OnUpdateUIOverlay(vks::UIOverlay *overlay)
         overlay->checkBox("Semaphore", &computeSemaphore);
         overlay->checkBox("ImageBarrier", &imageBarrier);
     }
+}
+
+FluidComputeShaderTest::ComputePass::ComputePass(eComputePass id, std::string shaderName)
+    : id(id),
+      shaderName(shaderName)
+{
 }

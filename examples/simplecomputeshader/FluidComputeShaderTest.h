@@ -11,6 +11,8 @@
 
 #include "vulkanexamplebase.h"
 #include "SimpleComputeShader.h"
+#include "AssertMsg.h"
+#include <map>
 
 #define VERTEX_BUFFER_BIND_ID 0
 #define ENABLE_VALIDATION false
@@ -49,25 +51,26 @@ public:
         Vorticity2
     };
 
-    enum class eTexID
+    enum class eTexID : int
     {
-        ColorDispersion = 0,
-        Velocity1 = 1,
-        Velocity2 = 2,
-        Velocity3 = 3,
-        Pressure1 = 4,
-        Pressure2 = 5,
-        Force = 6,
-        Count = 7,
-        Vorticity = 8
+        V1,
+        V2,
+        V3,
+        V4,
+        F1,
+        P1,
+        P2,
+        VOR
     };
 
     struct ComputePass {
-        eComputePass id;
+        ComputePass(eComputePass id, std::string shaderName);
         VulkanUtilities::SimpleComputeShader* computeShader;
+        eComputePass id;
         std::string shaderName;
-        vks::Texture2D textureComputeTarget;
     };
+
+    std::map<eTexID, vks::Texture2D> computeTextureTargets;
 
     // Resources for the compute part of the example
     struct Compute {
@@ -76,6 +79,8 @@ public:
         VkCommandBuffer commandBuffer;                // Command buffer storing the dispatch commands and barriers
         VkSemaphore semaphore;                      // Execution dependency between compute & graphic submission
         std::vector<ComputePass> passes;
+        int threadGroupX, threadGroupY;
+        int computeResX, computeResY;
     } compute;
 
     VulkanUtilities::VulkanExampleFramework* framework;
@@ -105,6 +110,8 @@ public:
     vks::Texture2D& lastTextureComputeTarget();
 
     void loadAssets();
+
+    void createComputeTextureTarget(FluidComputeShaderTest::eTexID id, VkFormat format);
 
     void createComputePasses();
 
@@ -151,12 +158,6 @@ public:
         generateQuad();
         setupVertexDescriptions();
         prepareUniformBuffers();
-        
-        for(auto& computePass : compute.passes)
-        {
-            prepareTextureTarget(&computePass.textureComputeTarget, textureColorMap.width, textureColorMap.height, VK_FORMAT_R8G8B8A8_UNORM);
-        }
-        
         setupGraphicsDescriptorSetLayout();
         preparePipelines();
         setupDescriptorPool();
