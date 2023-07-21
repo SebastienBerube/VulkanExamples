@@ -1,4 +1,4 @@
-﻿RWTexture2D<float4> F_out : register(u0);
+﻿RWTexture2D<float2> F_out : register(u0);
 
 struct PushConstants
 {
@@ -30,5 +30,5 @@ void main(uint3 GlobalInvocationID : SV_DispatchThreadID)
 
     float strength = 10.0;
 
-    F_out[tid] = float4(strength*dForce*vForce,0,1);
+    F_out[tid] = float2(strength*dForce*vForce);
 }

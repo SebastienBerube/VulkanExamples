@@ -95,14 +95,14 @@ void FluidComputeShaderTest::createComputePasses()
 
     computeTextureTargets.clear();
 
-    createComputeTextureTarget(FluidComputeShaderTest::eTexID::V1, VK_FORMAT_R8G8B8A8_UNORM);
-    createComputeTextureTarget(FluidComputeShaderTest::eTexID::V2, VK_FORMAT_R8G8B8A8_UNORM);
-    createComputeTextureTarget(FluidComputeShaderTest::eTexID::V3, VK_FORMAT_R8G8B8A8_UNORM);
-    createComputeTextureTarget(FluidComputeShaderTest::eTexID::V4, VK_FORMAT_R8G8B8A8_UNORM);
-    createComputeTextureTarget(FluidComputeShaderTest::eTexID::F1, VK_FORMAT_R8G8B8A8_UNORM);
-    createComputeTextureTarget(FluidComputeShaderTest::eTexID::P1, VK_FORMAT_R8G8B8A8_UNORM);
-    createComputeTextureTarget(FluidComputeShaderTest::eTexID::P2, VK_FORMAT_R8G8B8A8_UNORM);
-    createComputeTextureTarget(FluidComputeShaderTest::eTexID::VOR, VK_FORMAT_R8G8B8A8_UNORM);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::V1, VK_FORMAT_R32G32_SFLOAT);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::V2, VK_FORMAT_R32G32_SFLOAT);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::V3, VK_FORMAT_R32G32_SFLOAT);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::V4, VK_FORMAT_R32G32_SFLOAT);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::F1, VK_FORMAT_R32G32_SFLOAT);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::P1, VK_FORMAT_R32G32_SFLOAT);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::P2, VK_FORMAT_R32G32_SFLOAT);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::VOR, VK_FORMAT_R32G32_SFLOAT);
 }
 
 // Setup vertices for a single uv-mapped quad
@@ -481,8 +481,8 @@ void FluidComputeShaderTest::prepareCompute()
         
         std::vector<BindingInfo> bindings;
         {
-            bindings.push_back(BindingInfo{ "inputImage", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
-            bindings.push_back(BindingInfo{ "resultImage", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "inputImage", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "resultImage", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
         }
         
         computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
@@ -501,7 +501,7 @@ void FluidComputeShaderTest::prepareCompute()
 
         std::vector<BindingInfo> bindings;
         {
-            bindings.push_back(BindingInfo{ "F_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "F_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
         }
 
         computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
@@ -515,9 +515,9 @@ void FluidComputeShaderTest::prepareCompute()
 
         std::vector<BindingInfo> bindings;
         {
-            bindings.push_back(BindingInfo{ "F_in",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
-            bindings.push_back(BindingInfo{ "W_in",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
-            bindings.push_back(BindingInfo{ "W_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "F_in",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "W_in",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "W_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
         }
 
         computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
