@@ -7,6 +7,7 @@ RWTexture2D<float4> resultImage : register(u1);
 struct PushConstants
 {
     float DeltaTime;
+    float Time;
     int FrameNo; //Unused. This was for test purposes only.
 };
 

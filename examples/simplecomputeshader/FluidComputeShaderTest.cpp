@@ -72,7 +72,7 @@ void FluidComputeShaderTest::loadAssets()
 
 void FluidComputeShaderTest::createComputePasses()
 {
-    for (int i=0; i<1; ++i)
+    for (int i=0; i<2; ++i)
     {
         ComputePass computePass;
         compute.passes.push_back(computePass);
@@ -417,8 +417,65 @@ void FluidComputeShaderTest::prepareCompute()
     vkGetDeviceQueue(device, vulkanDevice->queueFamilyIndices.compute, 0, &compute.queue);
 
     vks::Texture* srcImage = &textureColorMap;
+
+    std::vector<UniformInfo> uniforms;
+    {
+        UniformType uType = UNSUPPORTED;
+        int byteOffset = 0;
+        int index = 0;
+
+        uType = GetUniformType("float");
+        uniforms.push_back(UniformInfo{ "DeltaTime", uType, index++, byteOffset });
+        byteOffset += GetTypeSize(uType);
+
+        uType = GetUniformType("float");
+        uniforms.push_back(UniformInfo{ "Time", uType, index++, byteOffset });
+        byteOffset += GetTypeSize(uType);
+
+        uType = GetUniformType("int");
+        uniforms.push_back(UniformInfo{ "FrameNo", uType, index++, byteOffset });
+        byteOffset += GetTypeSize(uType);
+    }
+
+    //Advect
     {
         auto& computePass = compute.passes[0];
+        
+        std::vector<BindingInfo> bindings;
+        {
+            bindings.push_back(BindingInfo{ "inputImage", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "resultImage", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
+        }
+        
+        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, "simplecomputeshader/advect", uniforms, bindings);
+        
+        computePass.computeShader->SetTexture(0, "inputImage", *srcImage);
+        computePass.computeShader->SetTexture(0, "resultImage", computePass.textureComputeTarget);
+
+        //Input texture is output of the previous compute pass
+        srcImage = &computePass.textureComputeTarget;
+    }
+
+    //Force Gen
+    {
+        auto& computePass = compute.passes[1];
+
+        std::vector<BindingInfo> bindings;
+        {
+            bindings.push_back(BindingInfo{ "F_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
+        }
+
+        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, "simplecomputeshader/forceGen", uniforms, bindings);
+
+        computePass.computeShader->SetTexture(0, "F_out", computePass.textureComputeTarget);
+
+        //Input texture is output of the previous compute pass
+        srcImage = &computePass.textureComputeTarget;
+    }
+
+    //Force
+    /* {
+        auto& computePass = compute.passes[2];
         std::vector<UniformInfo> uniforms;
         {
             UniformType uType = UNSUPPORTED;
@@ -432,15 +489,16 @@ void FluidComputeShaderTest::prepareCompute()
             uniforms.push_back(UniformInfo{ "FrameNo", uType, 2, byteOffset });
             byteOffset += GetTypeSize(uType);
         }
-        
+
         std::vector<BindingInfo> bindings;
         {
-            bindings.push_back(BindingInfo{ "inputImage", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
-            bindings.push_back(BindingInfo{ "resultImage", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "F_in",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "W_in",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "W_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R8G8B8A8_UNORM, (uint32_t)bindings.size() });
         }
-        
-        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, "simplecomputeshader/advect", uniforms, bindings);
-        
+
+        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, "simplecomputeshader/force", uniforms, bindings);
+
         computePass.computeShader->SetFloat("DeltaTime", frameTimer);
         computePass.computeShader->SetInt("FrameNo", frameNo);
         computePass.computeShader->SetTexture(0, "inputImage", *srcImage);
@@ -448,7 +506,7 @@ void FluidComputeShaderTest::prepareCompute()
 
         //Input texture is output of the previous compute pass
         srcImage = &computePass.textureComputeTarget;
-    }
+    }*/
 
 
     // One pipeline for each effect
@@ -595,6 +653,7 @@ void FluidComputeShaderTest::updateComputeShaderPushConstants()
     for (int i = 0; i < compute.passes.size(); ++i)
     {
         compute.passes[i].computeShader->SetFloat("DeltaTime", this->frameTimer);
+        compute.passes[i].computeShader->SetFloat("Time", this->totalTimeSec);
         compute.passes[i].computeShader->SetInt("FrameNo", this->frameNo);
     }
 
@@ -649,6 +708,7 @@ void FluidComputeShaderTest::render()
     }
 
     ++frameNo;
+    totalTimeSec += frameTimer;
 }
 
 void FluidComputeShaderTest::viewChanged()

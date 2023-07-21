@@ -1,0 +1,34 @@
+﻿RWTexture2D<float4> F_out : register(u0);
+
+struct PushConstants
+{
+    float DeltaTime;
+    float Time;
+    int FrameNo; //Unused. This was for test purposes only.
+};
+
+[[vk::push_constant]]
+PushConstants pc;
+
+// Add-force step
+[numthreads(16, 16, 1)]
+void main(uint3 GlobalInvocationID : SV_DispatchThreadID)
+{
+    uint2 tid = uint2(GlobalInvocationID.x, GlobalInvocationID.y);
+
+    uint2 dim;
+    F_out.GetDimensions(dim.x, dim.y);
+
+    float2 uv = (tid + 0.5) / dim;
+
+    float2 pForce = float2(0.5,0.5)+0.25*float2(cos(pc.Time),sin(pc.Time));
+    
+    float2 vForce = pForce-uv;
+    float dForce = length(vForce);
+    
+    dForce = smoothstep(0.05,0.04,dForce);
+
+    float strength = 10.0;
+
+    F_out[tid] = float4(strength*dForce*vForce,0,1);
+}

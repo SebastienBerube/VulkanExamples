@@ -67,6 +67,7 @@ public:
     } uboVS;
 
     int frameNo = 0;
+    float totalTimeSec = 0.0f;
 
     int vertexBufferSize;
 

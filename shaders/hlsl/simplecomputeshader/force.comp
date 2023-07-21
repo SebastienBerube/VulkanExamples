@@ -1,0 +1,21 @@
+﻿RWTexture2D<float4> F_in : register(u0);
+RWTexture2D<float4> W_in : register(u1);
+RWTexture2D<float4> W_out : register(u2);
+
+struct PushConstants
+{
+    float DeltaTime;
+    int FrameNo; //Unused. This was for test purposes only.
+};
+
+[[vk::push_constant]]
+PushConstants pc;
+
+// Add-force step
+[numthreads(8, 8, 1)]
+void main(uint3 GlobalInvocationID : SV_DispatchThreadID)
+{
+    uint2 tid = uint2(GlobalInvocationID.x, GlobalInvocationID.y);
+    
+    W_out[tid].rg = W_in[tid].rg + F_in[tid].rg * pc.DeltaTime;
+}
