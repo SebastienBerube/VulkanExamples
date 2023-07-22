@@ -1,0 +1,23 @@
+﻿RWTexture2D<float> B1_in : register(u0);
+RWTexture2D<float> X1_in : register(u1);
+RWTexture2D<float> X1_out : register(u2);
+
+struct PushConstants
+{
+    float DeltaTime;
+    float Time;
+    int FrameNo; //Unused. This was for test purposes only.
+    float Alpha;
+    float Beta;
+};
+
+[[vk::push_constant]]
+PushConstants pc;
+
+// Jacobi method with a scalar field
+[numthreads(16, 16, 1)]
+void main(uint2 tid : SV_DispatchThreadID)
+{
+    X1_out[tid] = (X1_in[tid - int2(1, 0)] + X1_in[tid + int2(1, 0)] +
+                   X1_in[tid - int2(0, 1)] + X1_in[tid + int2(0, 1)] + pc.Alpha * B1_in[tid]) / pc.Beta;
+}

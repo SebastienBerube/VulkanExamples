@@ -93,6 +93,7 @@ void FluidComputeShaderTest::createComputePasses()
     compute.passes.push_back(ComputePass(eComputePass::ForceGen, "simplecomputeshader/forceGen"));
     compute.passes.push_back(ComputePass(eComputePass::Force,    "simplecomputeshader/force"));
     compute.passes.push_back(ComputePass(eComputePass::PSetup,   "simplecomputeshader/psetup"));
+    compute.passes.push_back(ComputePass(eComputePass::Jacobi1,  "simplecomputeshader/jacobi1"));
 
     computeTextureTargets.clear();
 
@@ -541,7 +542,39 @@ void FluidComputeShaderTest::prepareCompute()
         computePass.computeShader->SetTexture(0, "W_in", computeTextureTargets[FluidComputeShaderTest::eTexID::V3]);
         computePass.computeShader->SetTexture(0, "DivW_out", computeTextureTargets[FluidComputeShaderTest::eTexID::D1]);
         computePass.computeShader->SetTexture(0, "P_out", computeTextureTargets[FluidComputeShaderTest::eTexID::P1]);
+    }
 
+    // Jacobi iteration
+    {
+        std::vector<UniformInfo> jacobiUniforms = uniforms;
+        {
+            UniformType uType = UNSUPPORTED;
+            int byteOffset = GetTotalSize(jacobiUniforms);
+            int index = jacobiUniforms.size();
+
+            uType = GetUniformType("float");
+            jacobiUniforms.push_back(UniformInfo{ "Alpha", uType, index++, byteOffset });
+            byteOffset += GetTypeSize(uType);
+
+            uType = GetUniformType("float");
+            uniforms.push_back(UniformInfo{ "Beta", uType, index++, byteOffset });
+            byteOffset += GetTypeSize(uType);
+        }
+
+        auto& computePass = *getComputePassById(FluidComputeShaderTest::eComputePass::Jacobi1);
+
+        std::vector<BindingInfo> bindings;
+        {
+            bindings.push_back(BindingInfo{ "B1_in",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "X1_in",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "X1_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
+        }
+
+        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
+
+        computePass.computeShader->SetTexture(0, "B1_in", computeTextureTargets[FluidComputeShaderTest::eTexID::D1]);
+        computePass.computeShader->SetTexture(0, "X1_in", computeTextureTargets[FluidComputeShaderTest::eTexID::P1]);
+        computePass.computeShader->SetTexture(0, "X1_out", computeTextureTargets[FluidComputeShaderTest::eTexID::P2]);
     }
 
     // One pipeline for each effect
