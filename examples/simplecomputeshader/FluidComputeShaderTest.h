@@ -45,7 +45,8 @@ public:
         Force,
         PSetup,
         PFinish,
-        Jacobi1,
+        Jacobi1A,
+        Jacobi1B,
         Jacobi2,
         Vorticity1,
         Vorticity2

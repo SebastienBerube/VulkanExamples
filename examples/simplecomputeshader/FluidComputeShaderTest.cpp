@@ -93,7 +93,8 @@ void FluidComputeShaderTest::createComputePasses()
     compute.passes.push_back(ComputePass(eComputePass::ForceGen, "simplecomputeshader/forceGen"));
     compute.passes.push_back(ComputePass(eComputePass::Force,    "simplecomputeshader/force"));
     compute.passes.push_back(ComputePass(eComputePass::PSetup,   "simplecomputeshader/psetup"));
-    compute.passes.push_back(ComputePass(eComputePass::Jacobi1,  "simplecomputeshader/jacobi1"));
+    compute.passes.push_back(ComputePass(eComputePass::Jacobi1A, "simplecomputeshader/jacobi1"));
+    compute.passes.push_back(ComputePass(eComputePass::Jacobi1B, "simplecomputeshader/jacobi1"));
 
     computeTextureTargets.clear();
 
@@ -544,7 +545,7 @@ void FluidComputeShaderTest::prepareCompute()
         computePass.computeShader->SetTexture(0, "P_out", computeTextureTargets[FluidComputeShaderTest::eTexID::P1]);
     }
 
-    // Jacobi iteration
+    // Jacobi iterations
     {
         std::vector<UniformInfo> jacobiUniforms = uniforms;
         {
@@ -561,20 +562,40 @@ void FluidComputeShaderTest::prepareCompute()
             byteOffset += GetTypeSize(uType);
         }
 
-        auto& computePass = *getComputePassById(FluidComputeShaderTest::eComputePass::Jacobi1);
-
-        std::vector<BindingInfo> bindings;
         {
-            bindings.push_back(BindingInfo{ "B1_in",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
-            bindings.push_back(BindingInfo{ "X1_in",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
-            bindings.push_back(BindingInfo{ "X1_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
+            auto& computePass = *getComputePassById(FluidComputeShaderTest::eComputePass::Jacobi1A);
+
+            std::vector<BindingInfo> bindings;
+            {
+                bindings.push_back(BindingInfo{ "B1_in",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
+                bindings.push_back(BindingInfo{ "X1_in",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
+                bindings.push_back(BindingInfo{ "X1_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
+            }
+
+            computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
+
+            computePass.computeShader->SetTexture(0, "B1_in", computeTextureTargets[FluidComputeShaderTest::eTexID::D1]);
+            computePass.computeShader->SetTexture(0, "X1_in", computeTextureTargets[FluidComputeShaderTest::eTexID::P1]);
+            computePass.computeShader->SetTexture(0, "X1_out", computeTextureTargets[FluidComputeShaderTest::eTexID::P2]);
+
         }
+        
+        {
+            auto& computePass = *getComputePassById(FluidComputeShaderTest::eComputePass::Jacobi1B);
 
-        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
+            std::vector<BindingInfo> bindings;
+            {
+                bindings.push_back(BindingInfo{ "B1_in",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
+                bindings.push_back(BindingInfo{ "X1_in",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
+                bindings.push_back(BindingInfo{ "X1_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
+            }
 
-        computePass.computeShader->SetTexture(0, "B1_in", computeTextureTargets[FluidComputeShaderTest::eTexID::D1]);
-        computePass.computeShader->SetTexture(0, "X1_in", computeTextureTargets[FluidComputeShaderTest::eTexID::P1]);
-        computePass.computeShader->SetTexture(0, "X1_out", computeTextureTargets[FluidComputeShaderTest::eTexID::P2]);
+            computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
+
+            computePass.computeShader->SetTexture(0, "B1_in", computeTextureTargets[FluidComputeShaderTest::eTexID::D1]);
+            computePass.computeShader->SetTexture(0, "X1_in", computeTextureTargets[FluidComputeShaderTest::eTexID::P2]);
+            computePass.computeShader->SetTexture(0, "X1_out", computeTextureTargets[FluidComputeShaderTest::eTexID::P1]);
+        }
     }
 
     // One pipeline for each effect
@@ -711,9 +732,18 @@ void FluidComputeShaderTest::buildComputeCommandBuffer()
 
     VK_CHECK_RESULT(vkBeginCommandBuffer(compute.commandBuffer, &cmdBufInfo));
 
-    for (auto& computePass : compute.passes)
+    getComputePassById(eComputePass::Advect)->computeShader->Dispatch(compute.commandBuffer, 0, 0, compute.threadGroupX, compute.threadGroupY, 1);
+    getComputePassById(eComputePass::ForceGen)->computeShader->Dispatch(compute.commandBuffer, 0, 0, compute.threadGroupX, compute.threadGroupY, 1);
+    getComputePassById(eComputePass::Force)->computeShader->Dispatch(compute.commandBuffer, 0, 0, compute.threadGroupX, compute.threadGroupY, 1);
+    getComputePassById(eComputePass::PSetup)->computeShader->Dispatch(compute.commandBuffer, 0, 0, compute.threadGroupX, compute.threadGroupY, 1);
+
+    SimpleComputeShader& jacobiComputeA = *getComputePassById(eComputePass::Jacobi1A)->computeShader;
+    SimpleComputeShader& jacobiComputeB = *getComputePassById(eComputePass::Jacobi1B)->computeShader;
+    const int JACOBI_ITERATIONS = 20;
+    for (int i = 0; i < JACOBI_ITERATIONS; ++i)
     {
-        computePass.computeShader->Dispatch(compute.commandBuffer, 0, 0, compute.threadGroupX, compute.threadGroupY, 1);
+        jacobiComputeA.Dispatch(compute.commandBuffer, 0, 0, compute.threadGroupX, compute.threadGroupY, 1);
+        jacobiComputeB.Dispatch(compute.commandBuffer, 0, 0, compute.threadGroupX, compute.threadGroupY, 1);
     }
     
     vkEndCommandBuffer(compute.commandBuffer);
