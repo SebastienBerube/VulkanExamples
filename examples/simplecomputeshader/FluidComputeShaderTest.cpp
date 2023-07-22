@@ -62,7 +62,8 @@ FluidComputeShaderTest::~FluidComputeShaderTest()
 vks::Texture2D& FluidComputeShaderTest::lastTextureComputeTarget()
 {
     //Temporary: return force texture.
-    return computeTextureTargets[FluidComputeShaderTest::eTexID::F1];
+    static eTexID displayTexID = FluidComputeShaderTest::eTexID::V1;
+    return computeTextureTargets[displayTexID];
 }
 
 void FluidComputeShaderTest::loadAssets()
@@ -95,6 +96,7 @@ void FluidComputeShaderTest::createComputePasses()
     compute.passes.push_back(ComputePass(eComputePass::PSetup,   "simplecomputeshader/psetup"));
     compute.passes.push_back(ComputePass(eComputePass::Jacobi1A, "simplecomputeshader/jacobi1"));
     compute.passes.push_back(ComputePass(eComputePass::Jacobi1B, "simplecomputeshader/jacobi1"));
+    compute.passes.push_back(ComputePass(eComputePass::PFinish,  "simplecomputeshader/pfinish"));
 
     computeTextureTargets.clear();
 
@@ -598,6 +600,24 @@ void FluidComputeShaderTest::prepareCompute()
         }
     }
 
+    //Projection Finish
+    {
+        auto& computePass = *getComputePassById(FluidComputeShaderTest::eComputePass::PFinish);
+
+        std::vector<BindingInfo> bindings;
+        {
+            bindings.push_back(BindingInfo{ "W_in",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "P_in",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT,    (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "U_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
+        }
+
+        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
+
+        computePass.computeShader->SetTexture(0, "W_in",  computeTextureTargets[FluidComputeShaderTest::eTexID::V3]);
+        computePass.computeShader->SetTexture(0, "P_in",  computeTextureTargets[FluidComputeShaderTest::eTexID::P1]);
+        computePass.computeShader->SetTexture(0, "U_out", computeTextureTargets[FluidComputeShaderTest::eTexID::V1]);
+    }
+
     // One pipeline for each effect
     for (auto& computePass : compute.passes)
     {
@@ -745,6 +765,8 @@ void FluidComputeShaderTest::buildComputeCommandBuffer()
         jacobiComputeA.Dispatch(compute.commandBuffer, 0, 0, compute.threadGroupX, compute.threadGroupY, 1);
         jacobiComputeB.Dispatch(compute.commandBuffer, 0, 0, compute.threadGroupX, compute.threadGroupY, 1);
     }
+
+    getComputePassById(eComputePass::PFinish)->computeShader->Dispatch(compute.commandBuffer, 0, 0, compute.threadGroupX, compute.threadGroupY, 1);
     
     vkEndCommandBuffer(compute.commandBuffer);
 }
