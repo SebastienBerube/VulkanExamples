@@ -1,5 +1,5 @@
 ﻿RWTexture2D<float2> W_in : register(u0);
-RWTexture2D<float2> DivW_out : register(u1);
+RWTexture2D<float> DivW_out : register(u1);
 RWTexture2D<float> P_out : register(u2);
 
 struct PushConstants
@@ -14,7 +14,7 @@ PushConstants pc;
 
 // Setup for Project step (divW calculation)
 [numthreads(16, 16, 1)]
-void PSetup(uint2 tid : SV_DispatchThreadID)
+void main(uint2 tid : SV_DispatchThreadID)
 {
     uint2 dim;
     W_in.GetDimensions(dim.x, dim.y);
