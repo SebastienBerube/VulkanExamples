@@ -650,7 +650,7 @@ void FluidComputeShaderTest::buildCommandBuffers()
         vkCmdEndRenderPass(drawCmdBuffers[i]);
 
         //TODO: Test synchronization by clearing buffers here.
-        /*
+        /*for (auto& tex : computeTextureTargets)
         {
             VkClearColorValue clearColor0 = { 1.0f, 0.0f, 0.0f, 1.0f };
 
@@ -661,7 +661,7 @@ void FluidComputeShaderTest::buildCommandBuffers()
             clearRange.baseArrayLayer = 0;
             clearRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
             
-            vkCmdClearColorImage(drawCmdBuffers[i], compute.passes[0].textureComputeTargets[0].image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
+            vkCmdClearColorImage(drawCmdBuffers[i], tex.second.image, VK_IMAGE_LAYOUT_GENERAL, &clearColor0, 1, &clearRange);
         }*/
 
         VK_CHECK_RESULT(vkEndCommandBuffer(drawCmdBuffers[i]));
