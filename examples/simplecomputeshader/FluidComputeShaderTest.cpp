@@ -553,14 +553,14 @@ void FluidComputeShaderTest::prepareCompute()
         {
             UniformType uType = UNSUPPORTED;
             int byteOffset = GetTotalSize(jacobiUniforms);
-            int index = jacobiUniforms.size();
+            int index = jacobiUniforms.size()-1;
 
             uType = GetUniformType("float");
             jacobiUniforms.push_back(UniformInfo{ "Alpha", uType, index++, byteOffset });
             byteOffset += GetTypeSize(uType);
 
             uType = GetUniformType("float");
-            uniforms.push_back(UniformInfo{ "Beta", uType, index++, byteOffset });
+            jacobiUniforms.push_back(UniformInfo{ "Beta", uType, index++, byteOffset });
             byteOffset += GetTypeSize(uType);
         }
 
@@ -574,8 +574,11 @@ void FluidComputeShaderTest::prepareCompute()
                 bindings.push_back(BindingInfo{ "X1_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
             }
 
-            computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
+            computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, jacobiUniforms, bindings);
 
+            float dx = 1.0f / compute.computeResY;
+            computePass.computeShader->SetFloat("Alpha", -dx * dx);
+            computePass.computeShader->SetFloat("Beta", 4.0f);
             computePass.computeShader->SetTexture(0, "B1_in", computeTextureTargets[FluidComputeShaderTest::eTexID::D1]);
             computePass.computeShader->SetTexture(0, "X1_in", computeTextureTargets[FluidComputeShaderTest::eTexID::P1]);
             computePass.computeShader->SetTexture(0, "X1_out", computeTextureTargets[FluidComputeShaderTest::eTexID::P2]);
@@ -592,8 +595,11 @@ void FluidComputeShaderTest::prepareCompute()
                 bindings.push_back(BindingInfo{ "X1_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
             }
 
-            computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
+            computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, jacobiUniforms, bindings);
 
+            float dx = 1.0f / compute.computeResY;
+            computePass.computeShader->SetFloat("Alpha", -dx * dx);
+            computePass.computeShader->SetFloat("Beta", 4.0f);
             computePass.computeShader->SetTexture(0, "B1_in", computeTextureTargets[FluidComputeShaderTest::eTexID::D1]);
             computePass.computeShader->SetTexture(0, "X1_in", computeTextureTargets[FluidComputeShaderTest::eTexID::P2]);
             computePass.computeShader->SetTexture(0, "X1_out", computeTextureTargets[FluidComputeShaderTest::eTexID::P1]);
