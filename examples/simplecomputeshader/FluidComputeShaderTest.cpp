@@ -101,7 +101,7 @@ void FluidComputeShaderTest::createComputePasses()
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::V3, VK_FORMAT_R32G32_SFLOAT);
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::V4, VK_FORMAT_R32G32_SFLOAT);
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::F1, VK_FORMAT_R32G32_SFLOAT);
-    createComputeTextureTarget(FluidComputeShaderTest::eTexID::D1, VK_FORMAT_R32G32_SFLOAT);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::D1, VK_FORMAT_R32_SFLOAT);
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::P1, VK_FORMAT_R32_SFLOAT);
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::P2, VK_FORMAT_R32_SFLOAT);
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::VOR, VK_FORMAT_R32G32_SFLOAT);
@@ -532,11 +532,11 @@ void FluidComputeShaderTest::prepareCompute()
         std::vector<BindingInfo> bindings;
         {
             bindings.push_back(BindingInfo{ "W_in",      VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
-            bindings.push_back(BindingInfo{ "DivW_out",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
-            bindings.push_back(BindingInfo{ "P_out",     VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT,    (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "DivW_out",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "P_out",     VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
         }
 
-        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, "simplecomputeshader/force", uniforms, bindings);
+        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
 
         computePass.computeShader->SetTexture(0, "W_in", computeTextureTargets[FluidComputeShaderTest::eTexID::V3]);
         computePass.computeShader->SetTexture(0, "DivW_out", computeTextureTargets[FluidComputeShaderTest::eTexID::D1]);
