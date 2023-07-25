@@ -148,6 +148,12 @@ namespace VulkanUtilities
         SetValue(_uniformInfos, _uniformData, name, &val);
     }
 
+    void SimpleComputeShader::SetFloat2(const std::string& name, float valx, float valy)
+    {
+        glm::vec2 val = { valx, valy };
+        SetValue(_uniformInfos, _uniformData, name, &val);
+    }
+
     void SimpleComputeShader::SetInt(const std::string& name, int val)
     {
         SetValue(_uniformInfos, _uniformData, name, &val);

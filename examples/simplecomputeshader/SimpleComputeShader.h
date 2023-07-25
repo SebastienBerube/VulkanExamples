@@ -20,6 +20,8 @@ namespace VulkanUtilities
         ~SimpleComputeShader();
 
         void SetFloat(const std::string& name, float val);
+        void SetFloat2(const std::string& name, float valx, float valy);
+        
         void SetInt(const std::string& name, int val);
         void SetTexture(int kernelIndex, const std::string& name, ImageInfo imageInfo);
         void Dispatch(VkCommandBuffer commandBuffer, int kernelIndex, int frameIndex, int threadGroupsX, int threadGroupsY, int threadGroupsZ);

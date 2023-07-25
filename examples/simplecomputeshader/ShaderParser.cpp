@@ -11,6 +11,10 @@ namespace VulkanUtilities
         {
             return UniformType::FLOAT;
         }
+        else if (type == "float2")
+        {
+            return UniformType::FLOAT2;
+        }
         else if (type == "int")
         {
             return UniformType::INT;
@@ -23,6 +27,7 @@ namespace VulkanUtilities
         switch (type)
         {
         case UniformType::FLOAT: return sizeof(float);
+        case UniformType::FLOAT2: return sizeof(float)*2;
         case UniformType::INT: return sizeof(int);
         default: return 0;
         }

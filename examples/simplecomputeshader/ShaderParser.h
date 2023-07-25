@@ -12,8 +12,9 @@ namespace VulkanUtilities
     enum UniformType
     {
         FLOAT = 0,
-        INT = 1,
-        UNSUPPORTED = 2
+        FLOAT2 = 1,
+        INT = 2,
+        UNSUPPORTED = 3
     };
 
     struct UniformInfo
