@@ -5,11 +5,9 @@ struct PushConstants
     float DeltaTime;
     float Time;
     int FrameNo; //Unused. This was for test purposes only.
-    int padding; //Alignment
+    float JetForceExponent;
     float2 JetForceOrigin;
     float2 JetForceVector;
-    float JetForceExponent;
-
 };
 
 [[vk::push_constant]]
@@ -25,15 +23,7 @@ void main(uint3 GlobalInvocationID : SV_DispatchThreadID)
     F_out.GetDimensions(dim.x, dim.y);
 
     float2 uv = (tid + 0.5) / dim;
-
-    float2 pForce = float2(0.5,0.5)+0.25*float2(cos(pc.Time),sin(pc.Time));
-    
-    float2 vForce = pForce-uv;
-    float dForce = length(vForce);
-    
-    dForce = smoothstep(0.05,0.04,dForce);
-
-    float strength = 10.0;
-
-    F_out[tid] = float2(strength*dForce*vForce);
+    //F_out[tid] = length(uv-pc.JetForceOrigin);
+    float amp = exp(-pc.JetForceExponent * distance(pc.JetForceOrigin, uv));
+    F_out[tid] = pc.JetForceVector * amp;
 }

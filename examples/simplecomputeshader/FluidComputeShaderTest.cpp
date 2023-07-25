@@ -506,8 +506,8 @@ void FluidComputeShaderTest::prepareCompute()
             int index = forceUniforms.size();
 
 
-            uType = VulkanUtilities::UniformType::INT;
-            uniforms.push_back(UniformInfo{ "padding", uType, index++, byteOffset });
+            uType = VulkanUtilities::UniformType::FLOAT;
+            forceUniforms.push_back(UniformInfo{ "JetForceExponent", uType, index++, byteOffset });
             byteOffset += GetTypeSize(uType);
 
             uType = VulkanUtilities::UniformType::FLOAT2;
@@ -516,10 +516,6 @@ void FluidComputeShaderTest::prepareCompute()
 
             uType = VulkanUtilities::UniformType::FLOAT2;
             forceUniforms.push_back(UniformInfo{ "JetForceVector", uType, index++, byteOffset });
-            byteOffset += GetTypeSize(uType);
-
-            uType = VulkanUtilities::UniformType::FLOAT2;
-            forceUniforms.push_back(UniformInfo{ "JetForceExponent", uType, index++, byteOffset });
             byteOffset += GetTypeSize(uType);
         }
 
@@ -810,8 +806,14 @@ void FluidComputeShaderTest::updateComputeShaderPushConstants()
         compute.passes[i].computeShader->SetInt("FrameNo", this->frameNo);
     }
 
-    getComputePassById(eComputePass::ForceGen)->computeShader->SetFloat2("JetForceOrigin", 0.33, 0.75);
-    getComputePassById(eComputePass::ForceGen)->computeShader->SetFloat2("JetForceVector", 0.111, 0.777);
+    auto inputPos = glm::vec2(
+        this->mousePos.x / this->width,
+        this->mousePos.y / this->height
+    );
+
+    getComputePassById(eComputePass::ForceGen)->computeShader->SetFloat2("JetForceOrigin", inputPos.x, inputPos.y);
+    getComputePassById(eComputePass::ForceGen)->computeShader->SetFloat2("JetForceVector", 1.0f, 1.0f);
+    getComputePassById(eComputePass::ForceGen)->computeShader->SetFloat("JetForceExponent", 200.0f);
 
     //TODO : Figure out if there is a better way to update push constants than rebuilding the compute command buffer.
     buildComputeCommandBuffer();
