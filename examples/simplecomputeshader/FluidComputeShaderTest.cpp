@@ -62,7 +62,7 @@ FluidComputeShaderTest::~FluidComputeShaderTest()
 vks::Texture2D& FluidComputeShaderTest::lastTextureComputeTarget()
 {
     //Temporary: return force texture.
-    static eTexID displayTexID = FluidComputeShaderTest::eTexID::V1;
+    static eTexID displayTexID = FluidComputeShaderTest::eTexID::F1;
     return computeTextureTargets[displayTexID];
 }
 
@@ -499,6 +499,30 @@ void FluidComputeShaderTest::prepareCompute()
 
     //Force Gen
     {
+        std::vector<UniformInfo> forceUniforms = uniforms;
+        {
+            UniformType uType = UNSUPPORTED;
+            int byteOffset = GetTotalSize(forceUniforms);
+            int index = forceUniforms.size();
+
+
+            uType = VulkanUtilities::UniformType::INT;
+            uniforms.push_back(UniformInfo{ "padding", uType, index++, byteOffset });
+            byteOffset += GetTypeSize(uType);
+
+            uType = VulkanUtilities::UniformType::FLOAT2;
+            forceUniforms.push_back(UniformInfo{ "JetForceOrigin", uType, index++, byteOffset });
+            byteOffset += GetTypeSize(uType);
+
+            uType = VulkanUtilities::UniformType::FLOAT2;
+            forceUniforms.push_back(UniformInfo{ "JetForceVector", uType, index++, byteOffset });
+            byteOffset += GetTypeSize(uType);
+
+            uType = VulkanUtilities::UniformType::FLOAT2;
+            forceUniforms.push_back(UniformInfo{ "JetForceExponent", uType, index++, byteOffset });
+            byteOffset += GetTypeSize(uType);
+        }
+
         auto& computePass = *getComputePassById(FluidComputeShaderTest::eComputePass::ForceGen);
 
         std::vector<BindingInfo> bindings;
@@ -506,7 +530,7 @@ void FluidComputeShaderTest::prepareCompute()
             bindings.push_back(BindingInfo{ "F_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
         }
 
-        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
+        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, forceUniforms, bindings);
 
         computePass.computeShader->SetTexture(0, "F_out", computeTextureTargets[FluidComputeShaderTest::eTexID::F1]);
     }
@@ -785,6 +809,9 @@ void FluidComputeShaderTest::updateComputeShaderPushConstants()
         compute.passes[i].computeShader->SetFloat("Time", this->totalTimeSec);
         compute.passes[i].computeShader->SetInt("FrameNo", this->frameNo);
     }
+
+    getComputePassById(eComputePass::ForceGen)->computeShader->SetFloat2("JetForceOrigin", 0.33, 0.75);
+    getComputePassById(eComputePass::ForceGen)->computeShader->SetFloat2("JetForceVector", 0.111, 0.777);
 
     //TODO : Figure out if there is a better way to update push constants than rebuilding the compute command buffer.
     buildComputeCommandBuffer();

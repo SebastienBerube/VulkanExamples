@@ -5,6 +5,11 @@ struct PushConstants
     float DeltaTime;
     float Time;
     int FrameNo; //Unused. This was for test purposes only.
+    int padding; //Alignment
+    float2 JetForceOrigin;
+    float2 JetForceVector;
+    float JetForceExponent;
+
 };
 
 [[vk::push_constant]]
