@@ -577,7 +577,7 @@ void FluidComputeShaderTest::prepareCompute()
         {
             UniformType uType = UNSUPPORTED;
             int byteOffset = GetTotalSize(jacobiUniforms);
-            int index = jacobiUniforms.size()-1;
+            int index = jacobiUniforms.size();
 
             uType = GetUniformType("float");
             jacobiUniforms.push_back(UniformInfo{ "Alpha", uType, index++, byteOffset });
