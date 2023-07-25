@@ -8,6 +8,27 @@
 
 namespace VulkanUtilities
 {
+    void ValidateUniformAlignment(const std::vector<UniformInfo>& uniforms)
+    {
+        //This is only a partial validation.
+        //Further readind needed:
+        // - https://www.reddit.com/r/vulkan/comments/wc0428/on_shader_memory_layout/
+        // - https://www.oreilly.com/library/view/opengl-programming-guide/9780132748445/app09lev1sec3.html
+
+        for (int i = 0; i < uniforms.size(); ++i)
+        {
+            ASSERT_MSG(uniforms[i].type != VulkanUtilities::UniformType::FLOAT2 || uniforms[i].byteOffset % VulkanUtilities::GetTypeSize(uniforms[i].type) == 0,
+                       "The alignment of vectors must be equal to 2 or 4 times their base size: 2 when they have 2 rows, and 4 when they have 3 or 4 rows.");
+
+            /*ASSERT_MSG(uniforms[i].type != VulkanUtilities::UniformType::FLOAT4 || uniforms[i].byteOffset % VulkanUtilities::GetTypeSize(uniforms[i].type) == 0,
+                "The alignment of vectors must be equal to 2 or 4 times their base size: 2 when they have 2 rows, and 4 when they have 3 or 4 rows.");*/
+
+            //About vec3: https://www.reddit.com/r/vulkan/comments/8vh07n/strange_behavior_with_push_constants/
+            /*ASSERT_MSG(uniforms[i].type != VulkanUtilities::UniformType::FLOAT3,
+                         "General suggestion: don't use vec3.");*/
+        }
+    }
+
     void ImageBarrier(VkCommandBuffer commandBuffer, VkImage image)
     {
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageMemoryBarrier.html
@@ -80,6 +101,7 @@ namespace VulkanUtilities
         : _framework(framework)
     {
         _uniformInfos = uniforms;
+        ValidateUniformAlignment(_uniformInfos);
         _shaderAssetPath = shaderAssetPath;
         int totalSize = GetTotalSize(_uniformInfos);
         if (totalSize > 0)
