@@ -102,6 +102,7 @@ public:
 
     int frameNo = 0;
     float totalTimeSec = 0.0f;
+    glm::vec2 previousInputPos;
 
     int vertexBufferSize;
 

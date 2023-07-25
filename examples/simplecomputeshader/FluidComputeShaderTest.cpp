@@ -62,7 +62,7 @@ FluidComputeShaderTest::~FluidComputeShaderTest()
 vks::Texture2D& FluidComputeShaderTest::lastTextureComputeTarget()
 {
     //Temporary: return force texture.
-    static eTexID displayTexID = FluidComputeShaderTest::eTexID::F1;
+    static eTexID displayTexID = FluidComputeShaderTest::eTexID::V1;
     return computeTextureTargets[displayTexID];
 }
 
@@ -811,8 +811,13 @@ void FluidComputeShaderTest::updateComputeShaderPushConstants()
         this->mousePos.y / this->height
     );
 
+    const float force = 2000.0f;
+    auto forceVector = (inputPos - previousInputPos) * force;
+
+    previousInputPos = inputPos;
+
     getComputePassById(eComputePass::ForceGen)->computeShader->SetFloat2("JetForceOrigin", inputPos.x, inputPos.y);
-    getComputePassById(eComputePass::ForceGen)->computeShader->SetFloat2("JetForceVector", 1.0f, 1.0f);
+    getComputePassById(eComputePass::ForceGen)->computeShader->SetFloat2("JetForceVector", forceVector.x, forceVector.y);
     getComputePassById(eComputePass::ForceGen)->computeShader->SetFloat("JetForceExponent", 200.0f);
 
     //TODO : Figure out if there is a better way to update push constants than rebuilding the compute command buffer.
