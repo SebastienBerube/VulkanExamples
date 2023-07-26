@@ -25,7 +25,12 @@ void main(uint2 tid : SV_DispatchThreadID)
     uint2 dim;
     W_in.GetDimensions(dim.x, dim.y);
 
-    if (any(tid == 0) || any(tid == dim - 1)) return;
+    if(tid.x == 0 || tid.x == dim.x - 1 ||
+       tid.y == 0 || tid.y == dim.y - 1)
+    {
+      U_out[tid] = float2(0.0,0.0);
+      return;
+    }
 
     float P1 = P_in[max(tid - int2(1, 0), 1)];
     float P2 = P_in[min(tid + int2(1, 0), dim - 2)];
@@ -63,9 +68,10 @@ void main(uint2 tid : SV_DispatchThreadID)
     }
     */
 
+    float2 borderVal = float2(0.0,0.0); //-u
     //Boundary
-    if (tid.x == 1) U_out[int2(0, tid.y)] = -u;
-    else if (tid.y == 1) U_out[int2(tid.x, 0)] = -u;
-    else if (tid.x == dim.x - 2) U_out[int2(dim.x - 1, tid.y)] = -u;
-    else if (tid.y == dim.y - 2) U_out[int2(tid.x, dim.y - 1)] = -u;
+    if (tid.x == 1) U_out[tid] = borderVal;
+    else if (tid.y == 1) U_out[tid] = borderVal;
+    else if (tid.x == dim.x - 2) U_out[tid] = borderVal;
+    else if (tid.y == dim.y - 2) U_out[tid] = borderVal;
 }

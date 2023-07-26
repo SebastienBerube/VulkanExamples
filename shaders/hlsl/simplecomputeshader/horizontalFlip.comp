@@ -1,0 +1,20 @@
+RWTexture2D<float4> inputImage : register(u0);
+RWTexture2D<float4> resultImage : register(u1);
+
+struct PushConstants
+{
+    float intensity;
+};
+
+[[vk::push_constant]]
+PushConstants pushConstants;
+
+[numthreads(16, 16, 1)]
+void main(uint3 GlobalInvocationID : SV_DispatchThreadID)
+{
+    uint width;
+    uint height;
+    inputImage.GetDimensions(width, height);
+    float4 rgba = inputImage[uint2(width-GlobalInvocationID.x-1, GlobalInvocationID.y)];
+    resultImage[int2(GlobalInvocationID.xy)] = rgba*pushConstants.intensity;
+}
