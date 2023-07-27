@@ -1,32 +1,38 @@
-﻿float DeltaTime;
-float Vorticity;
+﻿// W (velocity field; working)
+RWTexture2D<float2> W_in : register(u0);
+RWTexture2D<float> VOR_in : register(u1);
+RWTexture2D<float2> W_out : register(u2);
 
-// W (velocity field; working)
-Texture2D<float2> W_in;
-RWTexture2D<float2> W_out;
+struct PushConstants
+{
+    float DeltaTime;
+    float Time;
+    int FrameNo; //Unused. This was for test purposes only.
+    float Vorticity;
+};
 
-Texture2D<float> VOR_in;
+[[vk::push_constant]]
+PushConstants pc;
 
-[numthreads(8, 8, 1)]
-void Vorticity2(uint2 tid : SV_DispatchThreadID)
+[numthreads(16, 16, 1)]
+void main(uint2 tid : SV_DispatchThreadID)
 {
     float vortCenter = VOR_in[tid];
-    float vortLeft = VOR_in[tid - float2(-1, 0)];
-    float vortRight = VOR_in[tid - float2(1, 0)];
-    float vortTop = VOR_in[tid - float2(0, 1)];
-    float vortBottom = VOR_in[tid - float2(0, -1)];
+    float vortLeft   = VOR_in[tid - float2(-1, 0)];
+    float vortRight  = VOR_in[tid - float2( 1, 0)];
+    float vortTop    = VOR_in[tid - float2( 0, 1)];
+    float vortBottom = VOR_in[tid - float2( 0,-1)];
 
     float halfReciprocalGridScale = 0.4f;
     float2 force = halfReciprocalGridScale * float2(abs(vortTop) - abs(vortBottom),
-        abs(vortRight) - abs(vortLeft));
+    abs(vortRight) - abs(vortLeft));
 
-	float vorticityConfinementScale = Vorticity;
+    float vorticityConfinementScale = pc.Vorticity;
     float epsilon = 2.4414e-4;
     float magnitudeSquared = max(epsilon, dot(force, force));
     force *= rsqrt(magnitudeSquared);
     force *= vorticityConfinementScale * vortCenter * float2(1, -1);
 
     float2 velocityNew = W_in[tid];
-    W_out[tid] = velocityNew + DeltaTime * force;
-
+    W_out[tid] = velocityNew + pc.DeltaTime * force;
 }

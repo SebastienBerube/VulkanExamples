@@ -97,6 +97,15 @@ ELSE()
 	message(STATUS ${Vulkan_LIBRARY})
 ENDIF()
 
+# Check if dxcompiler.dll is available on the system
+set(DLL_NAME "dxcompiler.dll")
+find_file(DLL_PATH ${DLL_NAME})
+IF(NOT DLL_PATH)
+	message(FATAL_ERROR "DLL '${DLL_NAME}' not found. Make sure it is accessible during runtime. Suggestion: Install VulkanSDK and make sure '\\[VulkanSDK Install Dir]\\1.2.198.1\\Bin' is added to Path environment variable.")
+ELSE()
+	message(STATUS "DLL '${DLL_NAME}' found at ${DLL_PATH}")
+ENDIF()
+
 # Set DirectXShaderCompiler headers and libs
 IF(WIN32)
 	message("Using Win32 library")

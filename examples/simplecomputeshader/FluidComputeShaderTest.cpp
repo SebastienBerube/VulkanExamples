@@ -97,6 +97,8 @@ void FluidComputeShaderTest::createComputePasses()
     compute.passes.push_back(ComputePass(eComputePass::Jacobi1A, "simplecomputeshader/jacobi1"));
     compute.passes.push_back(ComputePass(eComputePass::Jacobi1B, "simplecomputeshader/jacobi1"));
     compute.passes.push_back(ComputePass(eComputePass::PFinish,  "simplecomputeshader/pfinish"));
+    compute.passes.push_back(ComputePass(eComputePass::Vorticity1, "simplecomputeshader/vorticity1"));
+    compute.passes.push_back(ComputePass(eComputePass::Vorticity2, "simplecomputeshader/vorticity2"));
 
     computeTextureTargets.clear();
 
@@ -108,7 +110,7 @@ void FluidComputeShaderTest::createComputePasses()
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::D1, VK_FORMAT_R32_SFLOAT);
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::P1, VK_FORMAT_R32_SFLOAT);
     createComputeTextureTarget(FluidComputeShaderTest::eTexID::P2, VK_FORMAT_R32_SFLOAT);
-    createComputeTextureTarget(FluidComputeShaderTest::eTexID::VOR, VK_FORMAT_R32G32_SFLOAT);
+    createComputeTextureTarget(FluidComputeShaderTest::eTexID::VOR, VK_FORMAT_R32_SFLOAT);
 }
 
 // Setup vertices for a single uv-mapped quad
@@ -549,6 +551,48 @@ void FluidComputeShaderTest::prepareCompute()
         computePass.computeShader->SetTexture(0, "W_out", computeTextureTargets[FluidComputeShaderTest::eTexID::V3]);
     }
 
+    //Vorticity 1
+    {
+        auto& computePass = *getComputePassById(FluidComputeShaderTest::eComputePass::Vorticity1);
+
+        std::vector<BindingInfo> bindings;
+        {
+            bindings.push_back(BindingInfo{ "W_in",    VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "VOR_out", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
+        }
+        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
+        computePass.computeShader->SetTexture(0, "W_in", computeTextureTargets[FluidComputeShaderTest::eTexID::V3]);
+        computePass.computeShader->SetTexture(0, "VOR_out", computeTextureTargets[FluidComputeShaderTest::eTexID::VOR]);
+    }
+
+    //Vorticity 2
+    {
+        std::vector<UniformInfo> vorticity2Uniforms = uniforms;
+        {
+            UniformType uType = UNSUPPORTED;
+            int byteOffset = GetTotalSize(vorticity2Uniforms);
+            int index = vorticity2Uniforms.size();
+
+            uType = VulkanUtilities::FLOAT;
+            vorticity2Uniforms.push_back(UniformInfo{ "Vorticity", uType, index++, byteOffset });
+            byteOffset += GetTypeSize(uType);
+        }
+
+        auto& computePass = *getComputePassById(FluidComputeShaderTest::eComputePass::Vorticity2);
+
+        std::vector<BindingInfo> bindings;
+        {
+            bindings.push_back(BindingInfo{ "W_in",   VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "VOR_in", VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32_SFLOAT, (uint32_t)bindings.size() });
+            bindings.push_back(BindingInfo{ "W_out",  VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_FORMAT_R32G32_SFLOAT, (uint32_t)bindings.size() });
+        }
+        computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, vorticity2Uniforms, bindings);
+        computePass.computeShader->SetTexture(0, "W_in", computeTextureTargets[FluidComputeShaderTest::eTexID::V3]);
+        computePass.computeShader->SetTexture(0, "VOR_in", computeTextureTargets[FluidComputeShaderTest::eTexID::VOR]);
+        computePass.computeShader->SetTexture(0, "W_out", computeTextureTargets[FluidComputeShaderTest::eTexID::V4]);
+        computePass.computeShader->SetFloat("Vorticity", 25.0f);
+    }
+
     //Projection Setup
     {
         auto& computePass = *getComputePassById(FluidComputeShaderTest::eComputePass::PSetup);
@@ -562,7 +606,7 @@ void FluidComputeShaderTest::prepareCompute()
 
         computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
 
-        computePass.computeShader->SetTexture(0, "W_in", computeTextureTargets[FluidComputeShaderTest::eTexID::V3]);
+        computePass.computeShader->SetTexture(0, "W_in", computeTextureTargets[FluidComputeShaderTest::eTexID::V4]);
         computePass.computeShader->SetTexture(0, "DivW_out", computeTextureTargets[FluidComputeShaderTest::eTexID::D1]);
         computePass.computeShader->SetTexture(0, "P_out", computeTextureTargets[FluidComputeShaderTest::eTexID::P1]);
     }
@@ -639,7 +683,7 @@ void FluidComputeShaderTest::prepareCompute()
 
         computePass.computeShader = new VulkanUtilities::SimpleComputeShader(*framework, computePass.shaderName, uniforms, bindings);
 
-        computePass.computeShader->SetTexture(0, "W_in",  computeTextureTargets[FluidComputeShaderTest::eTexID::V3]);
+        computePass.computeShader->SetTexture(0, "W_in",  computeTextureTargets[FluidComputeShaderTest::eTexID::V4]);
         computePass.computeShader->SetTexture(0, "P_in",  computeTextureTargets[FluidComputeShaderTest::eTexID::P1]);
         computePass.computeShader->SetTexture(0, "U_out", computeTextureTargets[FluidComputeShaderTest::eTexID::V1]);
     }
