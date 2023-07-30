@@ -825,6 +825,9 @@ void FluidComputeShaderTest::buildComputeCommandBuffer()
     getComputePassById(eComputePass::Advect)->computeShader->Dispatch(compute.commandBuffer, 0, 0, compute.threadGroupX, compute.threadGroupY, 1);
     getComputePassById(eComputePass::ForceGen)->computeShader->Dispatch(compute.commandBuffer, 0, 0, compute.threadGroupX, compute.threadGroupY, 1);
     getComputePassById(eComputePass::Force)->computeShader->Dispatch(compute.commandBuffer, 0, 0, compute.threadGroupX, compute.threadGroupY, 1);
+    getComputePassById(eComputePass::Vorticity1)->computeShader->Dispatch(compute.commandBuffer, 0, 0, compute.threadGroupX, compute.threadGroupY, 1);
+    getComputePassById(eComputePass::Vorticity2)->computeShader->Dispatch(compute.commandBuffer, 0, 0, compute.threadGroupX, compute.threadGroupY, 1);
+    
     getComputePassById(eComputePass::PSetup)->computeShader->Dispatch(compute.commandBuffer, 0, 0, compute.threadGroupX, compute.threadGroupY, 1);
 
     SimpleComputeShader& jacobiComputeA = *getComputePassById(eComputePass::Jacobi1A)->computeShader;
